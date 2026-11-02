@@ -57,3 +57,31 @@ Newest first.
 
 - The plan is a draft. Expect to regenerate two or three stations the first time; the generator learns nothing from that yet, so write the lesson here.
 - Quick notes are the whole data entry. If a kid gets no note, nothing is assumed about him.
+
+## 2026-11-02, QA, product audit and release-readiness pass
+
+Method: inventory of every screen and engine function; a second agent did a cold read of the code for correctness, data integrity and privacy; a third audited all 110 drills; vitest stress tests (rosters 1 to 30 with 1, 2 and 4 coaches, 20-minute and 120-minute practices, no gear, tight space, indoors, every arm resting, 6U and HS, two-coach merge, v1 to v2 migration, cascading deletes); then a Playwright walk of the coach flows on an iPhone 13 viewport. Walkthroughs are simulated; no coach feedback was collected.
+
+Found and fixed (P0 to P2, all verified by test or script):
+- P0: New practice page could loop (a filtered array rebuilt each render fed a reset effect). Memoized and keyed the one-time seeding.
+- Backup cancel on iOS counted as a backup; now a two-step sheet and `shareOrDownload` reports cancelled.
+- Printables opened with `window.open` fail in an installed iOS app; scorecards and home plans now open in an in-app sheet (iframe) with Print and Share.
+- Settings text fields wrote to the database per keystroke; now save on blur.
+- Station notes were hidden behind a `category:` prefix; `Station.category` is its own field with a migration shim.
+- Toast timers leaked; cleared on unmount.
+- Generator: fallback could drop hard rules (indoor drill outdoors); group split 4,4,4,1; four-minute rotations on twelve-minute drills; game-like groups capped at five. Fixed in `candidatePool`, `similarGroups`, rotation-aware filtering and `stationCount`.
+- Today showed Start practice for a plan days away; now Open the plan until the day.
+- Recap had two Finish buttons; one now. Variant ratings save on tap. Attendance can be corrected in the recap.
+- Deleting a player or practice left orphans; cascades now cover observations, variants, throwing, parent updates and planned practices.
+- Toolchain: react-router 6 moderate advisory, upgraded to 7; vite 6, vitest 5, vite-plugin-pwa 1.x. Zero critical or high; ten moderate dev-only in the workbox build chain.
+
+Drill audit (own assessment, not quoted feedback): library graded 8/10 before fixes. Twenty drills changed in text; the one unsafe item was a harder variant that bounced baseballs off a wall at a fielder's face, replaced with faster tennis balls and a called hop. Other fixes: distance caps by age on long toss, pop-fly and relay drills; the bullpen-style catching and pitching drills now carry high throwing load; live at-bats capped at 20 pitches and counted as the day's bullpen; feet-first slides and getting back standing gated on the sliding drill for 10U; full L-screen and 15 feet for 13U and up on short front toss; 21 outs became 15 with one coach hitting. Every drill now carries coaching extras (common mistakes with the fix, a safety line where one exists, how to make it a game, spacing), merged at seed time from `drills-extra.ts` and shown on the drill page and under Coach notes on each station. `LIBRARY_VERSION` 2 refreshes untouched library drills on next open. `tests/library.test.ts` keeps all of this true.
+
+Deliberately unchanged:
+- No accounts, server or sync. The merge-by-record model is in; the server is Phase 3 and only if a second coach adopts it.
+- No voice notes yet (browser permissions on an installed iOS app are uneven; roadmap).
+- Suggestions stay rules over the coach's own notes with a count behind each one; nothing statistical pretends to be more than it is.
+- Scorecards keep the team band, never names; the "went through the motions" count stays off parent pages.
+- Quick-note vocabulary stays at four big buttons plus More. Adding reads is cheap; adding buttons is not.
+
+Rollback: branch `rollback/pre-audit-2026-11-02` (commit 31b9880). Restore by pointing main at it; the IndexedDB schema did not change in this pass, so old data opens.

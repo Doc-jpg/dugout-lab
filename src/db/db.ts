@@ -141,6 +141,58 @@ export async function addGoal(playerId: string, goal: Omit<Player['goals'][numbe
   return g;
 }
 
+/** Remove a player and everything that is only his: notes, drill versions, throwing log, parent updates. Practices keep their history. */
+export async function deletePlayer(id: string, database: DugoutLabDB = db): Promise<void> {
+  await database.transaction('rw', [database.players, database.observations, database.variants, database.throwing, database.parentUpdates, database.practices], async () => {
+    await database.observations.where('playerId').equals(id).delete();
+    await database.variants.where('playerId').equals(id).delete();
+    await database.throwing.where('playerId').equals(id).delete();
+    await database.parentUpdates.where('playerId').equals(id).delete();
+    // Planned and live practices drop him from groups and objectives; finished ones keep their history.
+    const open = (await database.practices.toArray()).filter((p) => p.status !== 'done' && (p.inputs.presentIds.includes(id) || p.inputs.absentIds.includes(id)));
+    for (const p of open) {
+      await database.practices.put({
+        ...p,
+        inputs: { ...p.inputs, presentIds: p.inputs.presentIds.filter((x) => x !== id), absentIds: p.inputs.absentIds.filter((x) => x !== id), noThrowingIds: p.inputs.noThrowingIds.filter((x) => x !== id) },
+        blocks: p.blocks.map((b) => ({ ...b, groups: b.groups.map((g) => ({ ...g, playerIds: g.playerIds.filter((x) => x !== id) })).filter((g) => g.playerIds.length > 0), stations: b.stations.map((s) => ({ ...s, objectives: s.objectives.filter((o) => o.playerId !== id) })) })),
+        updatedAt: nowIso()
+      });
+    }
+    await database.players.delete(id);
+  });
+}
+
+/** Remove a practice. Notes taken during it stay with the players, just no longer tied to that practice. */
+export async function deletePractice(id: string, database: DugoutLabDB = db): Promise<void> {
+  await database.transaction('rw', [database.practices, database.observations], async () => {
+    await database.observations.where('practiceId').equals(id).modify({ practiceId: undefined });
+    await database.practices.delete(id);
+  });
+}
+
+/** Move a player to another team on this phone. His notes, goals and versions go with him. */
+export async function movePlayer(id: string, teamId: string, database: DugoutLabDB = db): Promise<void> {
+  await database.players.update(id, { teamId, updatedAt: nowIso() });
+}
+
+/** Remove a team and everything in it. Library drills stay; custom drills stay (they are not tied to a team). */
+export async function deleteTeam(teamId: string, database: DugoutLabDB = db): Promise<number> {
+  let n = 0;
+  await database.transaction('rw', [database.teams, database.players, database.observations, database.variants, database.throwing, database.parentUpdates, database.practices, database.settings], async () => {
+    const ids = (await database.players.where('teamId').equals(teamId).toArray()).map((p) => p.id);
+    n += await database.observations.where('playerId').anyOf(ids).delete();
+    n += await database.variants.where('playerId').anyOf(ids).delete();
+    n += await database.throwing.where('playerId').anyOf(ids).delete();
+    n += await database.parentUpdates.where('playerId').anyOf(ids).delete();
+    n += await database.practices.where('teamId').equals(teamId).delete();
+    n += await database.players.where('teamId').equals(teamId).delete();
+    n += await database.teams.where('id').equals(teamId).delete();
+    const s = await database.settings.get('settings');
+    if (s?.teamId === teamId) await database.settings.update('settings', { teamId: (await database.teams.toArray())[0]?.id });
+  });
+  return n;
+}
+
 // ---------------------------------------------------------------------------
 // Drills and variants
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import { createTeam, createPlayer, saveSettings } from '../../db/db';
 import { loadDemoData } from '../../data/demo';
 import { ageGroupForClass, seasonYearFor, AGE_GROUPS, type AgeGroup } from '../../engine/types';
 import { useToast } from '../components/Sheet';
+import { parseRoster } from '../../engine/roster';
 
 /** First run: three short steps and the coach is at a practice plan. Everything else can wait. */
 export function SetupPage() {
@@ -37,11 +38,8 @@ export function SetupPage() {
     setBusy(true);
     try {
       let n = 0;
-      for (const line of roster.split('\n').map((l) => l.trim()).filter(Boolean)) {
-        const m = /^#?(\d{1,2})?\s*(.*)$/.exec(line);
-        const parts = (m?.[2] ?? '').split(/\s+/).filter(Boolean);
-        if (!parts.length) continue;
-        await createPlayer({ teamId, firstName: parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0], lastName: parts.length > 1 ? parts[parts.length - 1] : '', number: m?.[1] });
+      for (const r of parseRoster(roster)) {
+        await createPlayer({ teamId, firstName: r.firstName, lastName: r.lastName, number: r.number });
         n += 1;
       }
       toast.show(`${n} players added`);

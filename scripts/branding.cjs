@@ -55,14 +55,17 @@ function expect(label, got, want) { if (JSON.stringify(got) !== JSON.stringify(w
   // Branded scorecard
   await page.goto(URL + '#/players'); await page.waitForSelector('text=Jonah'); await page.click('text=Jonah'); await page.waitForSelector('text=Try next');
   await page.getByRole('button', { name: 'Family' }).click(); await page.waitForTimeout(300);
-  const [popup] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: 'Scorecard', exact: true }).click()]);
-  await popup.waitForLoadState();
+  await page.getByRole('button', { name: 'Scorecard', exact: true }).click();
+  await page.waitForSelector('.sheet iframe');
+  const popup = page.frameLocator('.sheet iframe');
+  await popup.locator('body').waitFor();
   const card = await popup.locator('body').innerText();
   expect('scorecard carries program name', /Wow Factor 2032/.test(card), true);
   expect('scorecard lists coaches', /Coaches: .*Coach Demo \(Head coach\) 555-0100/.test(card), true);
   expect('scorecard has the logo', await popup.locator('.brandbar img').count(), 1);
-  await popup.screenshot({ path: path.join(__dirname, 'shots', '13_branded_scorecard.png'), fullPage: true });
-  await popup.close();
+  await page.screenshot({ path: path.join(__dirname, 'shots', '13_branded_scorecard.png'), fullPage: true });
+  await page.locator('.sheet-head >> role=button[name="Close"]').click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
   console.log(fails.length ? `FAILURES (${fails.length}):\n - ` + fails.join('\n - ') : 'ALL CHECKS PASSED');
   await browser.close();
   process.exit(fails.length ? 1 : 0);

@@ -4,15 +4,15 @@
  * Every suggestion is labeled a suggestion. Nothing here says what a kid "is"; it says what
  * the coach wrote down, how often, and one reasonable next thing to try. The coach decides.
  */
-import type { Category, Drill, Observation, Player } from './types';
-import { CATEGORY_LABEL } from './types';
+import type { Category, Drill, Observation, Player, Practice } from './types';
+import { CATEGORY_LABEL, CATEGORIES, stationCategory } from './types';
 import { playerLevel } from './generator';
 
 export interface Suggestion {
   id: string;
   playerId: string;
   category?: Category;
-  kind: 'decision_work' | 'easier_progression' | 'reset_routine' | 'ready_to_advance' | 'transfer_check' | 'rate_variant' | 'review_due';
+  kind: 'decision_work' | 'easier_progression' | 'reset_routine' | 'ready_to_advance' | 'transfer_check' | 'rate_variant' | 'review_due' | 'no_attention';
   /** Always starts with "Suggestion". */
   text: string;
   drillId?: string;
@@ -136,4 +136,31 @@ export function suggestionsFor(player: Player, observations: Observation[], dril
 /** Suggestions for everyone on a team, most evidence first. */
 export function suggestionsForTeam(players: Player[], observations: Observation[], drills: Drill[], opts: { sinceDays?: number; now?: Date } = {}): Suggestion[] {
   return players.flatMap((p) => suggestionsFor(p, observations, drills, opts)).sort((a, b) => b.count - a.count);
+}
+
+/** Kids who were at the last `n` finished practices and got no note at any of them. Quiet kids get overlooked; this says so. */
+export function attentionGaps(players: Player[], observations: Observation[], practices: Practice[], n = 3): Suggestion[] {
+  const recent = practices.filter((p) => p.status === 'done').sort((a, b) => b.date.localeCompare(a.date)).slice(0, n);
+  if (recent.length < n) return [];
+  const ids = new Set(recent.map((p) => p.id));
+  const out: Suggestion[] = [];
+  for (const p of players.filter((x) => x.status === 'active')) {
+    const attendedAll = recent.every((pr) => pr.inputs.presentIds.includes(p.id));
+    if (!attendedAll) continue;
+    const noted = observations.some((o) => o.playerId === p.id && o.practiceId && ids.has(o.practiceId));
+    if (!noted) out.push({ id: `s-${p.id}-quiet`, playerId: p.id, kind: 'no_attention', text: `${p.firstName} has been at the last ${n} practices with no note on him. Worth one look at his station next time.`, basis: [], count: 0, fromGame: false });
+  }
+  return out;
+}
+
+/** Areas with no station in the last `n` finished practices. */
+export function lightCategories(practices: Practice[], n = 4): Category[] {
+  const recent = practices.filter((p) => p.status === 'done').sort((a, b) => b.date.localeCompare(a.date)).slice(0, n);
+  if (!recent.length) return [];
+  const seen = new Set<Category>();
+  for (const p of recent) for (const b of p.blocks) for (const s of b.stations) {
+    const c = stationCategory(s);
+    if (c) seen.add(c);
+  }
+  return CATEGORIES.filter((c) => !seen.has(c) && c !== 'pitching' && c !== 'catching');
 }

@@ -5,7 +5,7 @@
   --bg-sunk: #e9e4d8;
   --ink: #15201a;
   --ink-2: #4a5a50;
-  --ink-3: #7c8a80;
+  --ink-3: #5f6d64;
   --line: #d8d2c4;
   --field: #2f7d4f;
   --field-2: #1f5e3a;
@@ -172,10 +172,11 @@ p { margin: 0 0 8px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   appearance: none; border: 1px solid var(--line); background: var(--bg-elev); color: var(--ink);
-  min-height: 40px; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; cursor: pointer;
+  min-height: 44px; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; cursor: pointer;
 }
 .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.chip.sm { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+.chip.sm { min-height: 36px; padding: 4px 10px; font-size: 13px; }
+.sheet pre, .sheet textarea, .sheet input { -webkit-user-select: text; user-select: text; }
 .chip.struck { background: var(--danger); border-color: var(--danger); color: #fff; text-decoration: line-through; }
 .avail-pill { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--line); }
 .avail-pill.absent { background: var(--danger); color: #fff; border-color: var(--danger); }
@@ -329,3 +330,6 @@ table.stats td.na { color: var(--ink-3); }
 .cue { display: inline-block; background: var(--bg-sunk); border-radius: 6px; padding: 3px 8px; margin: 2px 4px 2px 0; font-weight: 600; font-size: 13px; }
 textarea.input { min-height: 72px; }
 .demo-tag { font-size: 11px; color: var(--warn); font-weight: 700; }
+
+.station-head { width: 100%; background: none; border: 0; padding: 0; margin: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.station-head .title, .station-head .sub { display: block; }

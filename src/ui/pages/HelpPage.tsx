@@ -64,6 +64,17 @@ export function HelpPage() {
         </ul>
       </div>
       <div className="card">
+        <h2>Small things that save time</h2>
+        <ul className="step-list small">
+          <li><strong>Limits</strong>: on a player's page, "Not today" sets no throwing, no hitting or no running for a stretch. Every plan honors it until the date you set.</li>
+          <li><strong>Use this plan again</strong>: at the bottom of any plan. The drills stay, the objectives are rebuilt for who is here that day.</li>
+          <li><strong>Groups</strong>: in a plan, Adjust, Move a player, to move a kid between groups for a block.</li>
+          <li><strong>Coach notes</strong> on every station: open it for the common mistakes with the fix, the safety line if there is one, spacing, and a way to make it a game.</li>
+          <li><strong>Lock</strong>: Settings, Lock with a PIN, if the phone gets handed around at the field. Forgot it? Erase and restore from a backup.</li>
+          <li><strong>Attention gaps</strong>: Today tells you when a kid has been at three practices with no note. Quiet kids get overlooked; this is the nudge.</li>
+        </ul>
+      </div>
+      <div className="card">
         <h2>Age groups</h2>
         <p className="small">Teams run 6U through 18U, one per year, plus HS. Give a team its graduation year ("Class of 2032") and the age group follows the calendar: 13U this season, 14U next, with fall ball counting toward the coming spring. Pitch Smart limits and drill age gates follow the number. A school team or a one-off can use a fixed age group instead.</p>
       </div>

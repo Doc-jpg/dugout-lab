@@ -277,7 +277,7 @@ export async function commitRosterImport(plan: RosterImportPlan, labTeamId: stri
 }
 
 /** Share on a phone (Files, AirDrop, Mail) or download on a computer. */
-export async function shareOrDownload(bytes: Uint8Array, fileName: string, mime = 'application/zip'): Promise<'shared' | 'downloaded'> {
+export async function shareOrDownload(bytes: Uint8Array, fileName: string, mime = 'application/zip'): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   const blob = new Blob([copy], { type: mime });
@@ -291,7 +291,8 @@ export async function shareOrDownload(bytes: Uint8Array, fileName: string, mime 
       }
     }
   } catch (e: any) {
-    if (e?.name === 'AbortError') return 'shared';
+    // The coach closed the share sheet: nothing was sent, say so, do not fall through to a download.
+    if (e?.name === 'AbortError') return 'cancelled';
   }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

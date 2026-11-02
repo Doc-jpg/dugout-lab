@@ -4,7 +4,9 @@ import { useCurrentTeam, usePlayers, useGeneratorContext, useSettings, useThrowi
 import { savePractice, playerName } from '../../db/db';
 import { generatePractice, validatePractice } from '../../engine/generator';
 import { throwingFlags } from '../../engine/pitchsmart';
-import { CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, today, teamAgeGroup, type Category, type Equipment, type Space, type PracticeInputs } from '../../engine/types';
+import { lightCategories } from '../../engine/suggestions';
+import { usePractices } from '../hooks';
+import { CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, today, teamAgeGroup, activeRestrictions, RESTRICTION_LABEL, type Category, type Equipment, type Space, type PracticeInputs } from '../../engine/types';
 import { useToast } from '../components/Sheet';
 
 /** The inputs a volunteer coach actually has: who showed up, how long, how many helpers, what gear, where. */
@@ -16,7 +18,7 @@ export function NewPracticePage() {
   const ctx = useGeneratorContext(team?.id);
   const nav = useNavigate();
   const toast = useToast();
-  const active = players.filter((p) => p.status === 'active');
+  const active = useMemo(() => players.filter((p) => p.status === 'active'), [players]);
 
   const [date, setDate] = useState(today());
   const [time, setTime] = useState('17:30');
@@ -42,12 +44,26 @@ export function NewPracticePage() {
   }, [team]);
 
   const flags = useMemo(() => (team ? throwingFlags(active, throwing, teamAgeGroup(team), date) : new Map()), [team, active, throwing, date]);
-  // Anyone Pitch Smart flags (rest or unknown) starts on the no-throwing list; the coach can take him off.
+  const pastPractices = usePractices(team?.id);
+  const light = useMemo(() => lightCategories(pastPractices).filter((c) => !priorities.includes(c)).slice(0, 3), [pastPractices, priorities]);
+  // Anyone Pitch Smart flags (rest or unknown) or with a no-throwing limit starts on the no-throwing list; "out" starts absent.
+  // Seeded once per distinct set (a stable string key), so the coach's own taps are never overwritten.
+  const seedKey = useMemo(() => {
+    const next: string[] = [];
+    const out: string[] = [];
+    for (const [id, f] of flags) if (f.status !== 'ok') next.push(id);
+    for (const p of active) {
+      const lim = activeRestrictions(p, date);
+      if (lim.some((r) => r.kind === 'no_throwing')) next.push(p.id);
+      if (lim.some((r) => r.kind === 'out')) out.push(p.id);
+    }
+    return `${[...new Set(next)].sort().join(',')}|${[...new Set(out)].sort().join(',')}`;
+  }, [flags, active, date]);
   useEffect(() => {
-    const next = new Set<string>();
-    for (const [id, f] of flags) if (f.status !== 'ok') next.add(id);
-    setNoThrow(next);
-  }, [flags]);
+    const [rest, out] = seedKey.split('|');
+    setNoThrow(new Set(rest ? rest.split(',') : []));
+    if (out) setAbsent((prev) => new Set([...prev, ...out.split(',')]));
+  }, [seedKey]);
 
   if (!team || !ctx) return <div className="empty">Set up a team first.</div>;
 
@@ -56,7 +72,11 @@ export function NewPracticePage() {
     if (n.has(v)) n.delete(v); else n.add(v);
     setter(n);
   };
-  const togglePriority = (c: Category) => setPriorities(priorities.includes(c) ? priorities.filter((x) => x !== c) : [...priorities, c].slice(0, 4));
+  const togglePriority = (c: Category) => {
+    if (priorities.includes(c)) return setPriorities(priorities.filter((x) => x !== c));
+    if (priorities.length >= 4) return toast.show('Four priorities is plenty; take one off first');
+    setPriorities([...priorities, c]);
+  };
 
   const generate = async () => {
     setBusy(true);
@@ -72,7 +92,7 @@ export function NewPracticePage() {
         teamPriorities: priorities, playerPriorities, noThrowingIds: [...noThrow].filter((id) => presentIds.includes(id)), avoid: [...avoid]
       };
       const practice = generatePractice(inputs, ctx, { date, time });
-      const problems = validatePractice(practice);
+      const problems = validatePractice(practice, ctx.players);
       if (problems.length) practice.rationale.push(`Check: ${problems.join('; ')}`);
       await savePractice(practice);
       nav(`/practices/${practice.id}`, { replace: true });
@@ -88,7 +108,6 @@ export function NewPracticePage() {
     <div>
       <div className="row between" style={{ marginBottom: 8 }}>
         <button className="btn ghost sm" onClick={() => nav(-1)}>‹ Back</button>
-        <button className="btn primary" onClick={generate} disabled={busy || present === 0}>{busy ? 'Building…' : 'Generate practice'}</button>
       </div>
       <h1>New practice</h1>
 
@@ -97,6 +116,7 @@ export function NewPracticePage() {
         <div className="small" style={{ marginBottom: 8 }}>{present} of {active.length} here · {duration} min · {coaches} coach{coaches === 1 ? '' : 'es'} · {indoor ? 'indoors' : 'outside'}{noThrow.size ? ` · ${noThrow.size} resting an arm` : ''}</div>
         <button className="btn primary big-btn block" onClick={generate} disabled={busy || present === 0}>{busy ? 'Building…' : 'Generate practice'}</button>
         <div className="muted small" style={{ marginTop: 6 }}>Change anything below first if today is different: who is out, how long, the gear, where.</div>
+        {light.length > 0 && <div className="small" style={{ marginTop: 8 }}>Light lately: {light.map((c) => <button key={c} className="chip sm" style={{ marginRight: 4 }} onClick={() => togglePriority(c)}>+ {CATEGORY_LABEL[c]}</button>)} <span className="muted">(no station in the last few practices; tap to add as a priority)</span></div>}
       </div>
 
       <div className="card">
@@ -106,7 +126,7 @@ export function NewPracticePage() {
         </div>
         <div className="field"><label>How long</label>
           <div className="chips">{[45, 60, 75, 90, 120].map((m) => <button key={m} className={`chip ${duration === m ? 'on' : ''}`} onClick={() => setDuration(m)}>{m} min</button>)}
-            <input className="input" style={{ width: 80 }} type="number" min={20} max={240} value={duration} onChange={(e) => setDuration(parseInt(e.target.value || '0', 10))} />
+            <input className="input" style={{ width: 80 }} type="number" min={20} max={240} value={duration} onChange={(e) => setDuration(parseInt(e.target.value || '0', 10))} onBlur={() => setDuration(Math.max(20, Math.min(240, duration || 60)))} />
           </div>
         </div>
         <div className="field"><label>Coaches and helpers (including you)</label>
@@ -119,7 +139,7 @@ export function NewPracticePage() {
         <div className="chips">
           {active.map((p) => (
             <button key={p.id} className={`chip ${absent.has(p.id) ? 'struck' : ''}`} onClick={() => toggle(absent, p.id, setAbsent)}>
-              {p.number ? `#${p.number} ` : ''}{playerName(p, 'short')}
+              {p.number ? `#${p.number} ` : ''}{playerName(p, 'short')}{activeRestrictions(p, date).length ? ` (${activeRestrictions(p, date).map((r) => RESTRICTION_LABEL[r.kind].toLowerCase()).join(', ')})` : ''}
             </button>
           ))}
           {active.length === 0 && <span className="muted small">No players on the roster yet.</span>}
@@ -133,7 +153,7 @@ export function NewPracticePage() {
           {active.filter((p) => !absent.has(p.id)).map((p) => {
             const f = flags.get(p.id);
             return (
-              <button key={p.id} className={`chip sm ${noThrow.has(p.id) ? 'on' : ''}`} onClick={() => toggle(noThrow, p.id, setNoThrow)} title={f?.message}>
+              <button key={p.id} className={`chip ${noThrow.has(p.id) ? 'on' : ''}`} onClick={() => toggle(noThrow, p.id, setNoThrow)} title={f?.message}>
                 {playerName(p, 'short')}{f && f.status !== 'ok' ? ` (${f.status === 'rest' ? 'rest' : '?'})` : ''}
               </button>
             );

@@ -9,7 +9,7 @@
  * area (lowest, middle, highest, how many assessed). No rows for other players.
  */
 import type { Category, Drill, DrillVariant, Equipment, Level, Observation, Player, Practice, Team, Settings } from './types';
-import { CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, CATEGORIES } from './types';
+import { CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, CATEGORIES, localDate } from './types';
 import { playerLevel } from './generator';
 import { programName as programNameOf, usableAsAccent, inkFor, hexToRgb } from './brand';
 
@@ -194,7 +194,7 @@ function lately(ctx: UpdateContext) {
   const wins = obs.filter((o) => GOOD.includes(o.read));
   const rough = obs.filter((o) => ROUGH.includes(o.read));
   const effort = obs.filter((o) => o.read === 'hustle' || o.read === 'teammate' || o.read === 'coachable').length;
-  const practicesSince = ctx.practices.filter((p) => p.status === 'done' && p.date >= since.slice(0, 10) && p.inputs.presentIds.includes(ctx.player.id)).length;
+  const practicesSince = ctx.practices.filter((p) => p.status === 'done' && p.date >= localDate(since) && p.inputs.presentIds.includes(ctx.player.id)).length;
   return { wins, rough, effort, practicesSince };
 }
 
@@ -321,7 +321,7 @@ export function scorecardFor(player: Player, teamPlayers: Player[], observations
   const recent = recentByCategory(observations, player.id, days, now);
   const mine = observations.filter((o) => o.playerId === player.id && o.ts >= since);
   const count = (r: Observation['read']) => mine.filter((o) => o.read === r).length;
-  const done = practices.filter((p) => p.status === 'done' && p.date >= since.slice(0, 10));
+  const done = practices.filter((p) => p.status === 'done' && p.date >= localDate(since));
   return {
     player,
     teamName: opts.teamName,
@@ -374,7 +374,7 @@ ${brandHeader(card.brand)}
 <h2>By area</h2>
 <table><thead><tr><th>Area</th><th>${esc(p.firstName)}</th><th>Team band</th><th>Practice notes</th></tr></thead><tbody>${rows}</tbody></table>
 <h2>Effort and attitude (what the coach wrote down)</h2>
-<p class="small">Hustled: ${e.hustle} · Picked up a teammate: ${e.teammate} · Took a cue and used it: ${e.coachable} · Went through the motions: ${e.coasting}</p>
+<p class="small">Hustled: ${e.hustle} · Picked up a teammate: ${e.teammate} · Took a cue and used it: ${e.coachable}</p>
 <h2>Attendance</h2>
 <p class="small">${card.attendance.present} of ${card.attendance.total} practices in the last ${card.windowDays} days.</p>
 ${card.goalsDone.length ? `<h2>Goals reached</h2><ul class="small">${card.goalsDone.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>` : ''}
@@ -416,7 +416,7 @@ export function dueForUpdate(players: Player[], practices: Practice[], updates: 
     .filter((p) => p.status === 'active' && p.share !== 'none')
     .map((p) => {
       const last = updates.filter((u) => u.playerId === p.id).sort((a, b) => b.ts.localeCompare(a.ts))[0]?.ts;
-      const since = done.filter((x) => x.inputs.presentIds.includes(p.id) && (!last || x.date >= last.slice(0, 10))).length;
+      const since = done.filter((x) => x.inputs.presentIds.includes(p.id) && (!last || x.date > localDate(last))).length;
       return { player: p, practicesSince: since, last };
     })
     .filter((x) => x.practicesSince >= every)

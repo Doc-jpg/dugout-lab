@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Sheet } from './Sheet';
 import {
-  CATEGORIES, CATEGORY_LABEL, BLOCK_LABEL, EQUIPMENT_LABEL, SPACE_LABEL,
+  CATEGORIES, CATEGORY_LABEL, BLOCK_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, STYLE_WORD, THROWING_LOAD_WORD,
   type Drill, type Category, type BlockKind, type Equipment, type Space, type Level, type ThrowingLoad
 } from '../../engine/types';
 
@@ -51,8 +51,8 @@ export function DrillEditor({ title, initial, onClose, onSave }: { title: string
       <div className="field"><label>Equipment</label><div className="chips">{(Object.keys(EQUIPMENT_LABEL) as Equipment[]).map((e) => <button key={e} className={`chip sm ${d.equipment.includes(e) ? 'on' : ''}`} onClick={() => set('equipment', toggle<Equipment>(d.equipment, e))}>{EQUIPMENT_LABEL[e]}</button>)}</div></div>
       <div className="field"><label>Space</label><div className="chips">{(['tight', 'half', 'full'] as Space[]).map((s) => <button key={s} className={`chip sm ${d.space === s ? 'on' : ''}`} onClick={() => set('space', s)}>{SPACE_LABEL[s]}</button>)}</div></div>
       <label className="switch row between" style={{ marginBottom: 10 }}><span>Works indoors</span><input type="checkbox" checked={d.indoorOk} onChange={(e) => set('indoorOk', e.target.checked)} /></label>
-      <div className="field"><label>Throwing load</label><div className="chips">{(['none', 'light', 'moderate', 'high'] as ThrowingLoad[]).map((t) => <button key={t} className={`chip sm ${d.throwingLoad === t ? 'on' : ''}`} onClick={() => set('throwingLoad', t)}>{t}</button>)}</div></div>
-      <div className="field"><label>Practice style</label><div className="chips">{(['blocked', 'variable', 'random', 'decision', 'game'] as Drill['style'][]).map((s) => <button key={s} className={`chip sm ${d.style === s ? 'on' : ''}`} onClick={() => set('style', s)}>{s}</button>)}</div><div className="muted small">Blocked = same rep over and over. Variable = same skill, changing conditions. Random = mixed skills. Decision = a read before the action. Game = competition.</div></div>
+      <div className="field"><label>Throwing load</label><div className="chips">{(['none', 'light', 'moderate', 'high'] as ThrowingLoad[]).map((t) => <button key={t} className={`chip sm ${d.throwingLoad === t ? 'on' : ''}`} onClick={() => set('throwingLoad', t)}>{THROWING_LOAD_WORD[t]}</button>)}</div></div>
+      <div className="field"><label>Practice style</label><div className="chips">{(['blocked', 'variable', 'random', 'decision', 'game'] as Drill['style'][]).map((s) => <button key={s} className={`chip sm ${d.style === s ? 'on' : ''}`} onClick={() => set('style', s)}>{STYLE_WORD[s]}</button>)}</div><div className="muted small">Reps = the same rep over and over. Mixed reps = same skill, changing conditions. Game-speed mix = mixed skills at speed. Make a read = a decision before the action. Competition = score or clock.</div></div>
       <div className="field"><label>Tags (comma separated)</label><input className="input" value={tags} onChange={(e) => setTags(e.target.value)} /></div>
       <div className="field"><label>Links for home work (one per line: a label then the web address)</label><textarea className="input" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={'Drop step demo https://www.youtube.com/watch?v=...'} /><div className="muted small">Only links you add yourself go to parents.</div></div>
       <div className="field"><label>Where the idea comes from (optional)</label><input className="input" value={d.attribution ?? ''} onChange={(e) => set('attribution', e.target.value || undefined)} /></div>

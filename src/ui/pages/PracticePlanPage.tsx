@@ -1,15 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePractice, useGeneratorContext, usePlayerMap, fmtDate, fmtTime, useDrills } from '../hooks';
-import { db, savePractice, playerName, updatePractice } from '../../db/db';
+import { db, savePractice, playerName, updatePractice, deletePractice } from '../../db/db';
 import { regenerateStation, setStationDrill, setStationProgression, adjustPractice, validatePractice, type Adjustment } from '../../engine/generator';
-import { CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, nowIso, type Category, type Equipment, type Practice, type Station, type Block } from '../../engine/types';
+import { CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, STYLE_WORD, nowIso, newId, today, stationNote, stationCategory, type Category, type Equipment, type Practice, type Station, type Block, type Space } from '../../engine/types';
+import { TRANSITION_MIN } from '../../engine/generator';
 import { StationCard } from '../components/StationCard';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 
 /** The plan: blocks, stations, groups, every player's objective. Change anything; regenerate one station; one-tap adjustments. */
-const STYLE_WORD: Record<string, string> = { blocked: 'reps', variable: 'mixed reps', random: 'game-speed mix', decision: 'make a read', game: 'competition' };
-
 export function PracticePlanPage() {
   const { practiceId = '' } = useParams();
   const practice = usePractice(practiceId);
@@ -20,12 +19,14 @@ export function PracticePlanPage() {
   const toast = useToast();
   const [adjust, setAdjust] = useState(false);
   const [edit, setEdit] = useState<{ block: Block; station: Station } | null>(null);
+  const [groupsFor, setGroupsFor] = useState<Block | null>(null);
+  const [reuse, setReuse] = useState(false);
   const [del, setDel] = useState(false);
   const [why, setWhy] = useState(false);
   const drillMap = useMemo(() => new Map(drills.map((d) => [d.id, d])), [drills]);
 
   if (!practice || !ctx) return <div className="empty">Loading…</div>;
-  const problems = validatePractice(practice);
+  const problems = validatePractice(practice, ctx.players);
 
   const save = async (next: Practice, msg?: string) => {
     await savePractice(next);
@@ -62,11 +63,12 @@ export function PracticePlanPage() {
         <div key={b.id} className="section">
           <div className="block-head">
             <h3>{b.title}</h3>
-            <span className="muted small">{minuteLabel(b.startMin)} to {minuteLabel(b.startMin + b.minutes)} · {b.minutes} min{!b.wholeTeam ? ` · rotate every ${b.rotationMin}` : ''}</span>
+            <span className="muted small">{minuteLabel(b.startMin)} to {minuteLabel(b.startMin + b.minutes)} · {b.minutes} min{!b.wholeTeam ? ` · ${b.rotationMin} min per station, ${TRANSITION_MIN} to switch` : ''}</span>
           </div>
           {!b.wholeTeam && (
-            <div className="row wrap small" style={{ marginBottom: 6 }}>
+            <div className="row wrap small" style={{ marginBottom: 6, alignItems: 'center' }}>
               {b.groups.map((g) => <span key={g.id} className="pill">{g.name}: {g.playerIds.map((id) => playerName(players.get(id), 'first')).join(', ')}</span>)}
+              {practice.status !== 'done' && <button className="btn sm ghost" onClick={() => setGroupsFor(b)}>Change groups</button>}
             </div>
           )}
           <div className="col">
@@ -94,16 +96,64 @@ export function PracticePlanPage() {
         </div>
       ))}
 
-      <div className="row" style={{ marginTop: 20 }}>
+      <div className="row wrap" style={{ marginTop: 20 }}>
+        <button className="btn sm" onClick={() => setReuse(true)}>Use this plan again</button>
         <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setDel(true)}>Delete practice</button>
       </div>
 
+      {groupsFor && (
+        <Sheet title={`${groupsFor.title}: groups`} onClose={() => setGroupsFor(null)}>
+          <p className="muted small">Tap a kid, then the group he should be in. Stations keep their drills; his objectives come with him.</p>
+          {(practice.blocks.find((b) => b.id === groupsFor.id) ?? groupsFor).groups.map((g) => (
+            <div key={g.id} className="card" style={{ padding: 10 }}>
+              <div className="title">{g.name}</div>
+              <div className="chips" style={{ marginTop: 6 }}>
+                {g.playerIds.map((pid) => (
+                  <MoveChip key={pid} name={playerName(players.get(pid), 'short')} groups={(practice.blocks.find((b) => b.id === groupsFor.id) ?? groupsFor).groups.filter((x) => x.id !== g.id)} onMove={async (toGroupId) => { await save(adjustPractice(practice, { kind: 'move_player', blockId: groupsFor.id, playerId: pid, toGroupId }, ctx)); }} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </Sheet>
+      )}
+      {reuse && (
+        <Confirm
+          title="Use this plan again?"
+          text="Makes a new planned practice for today with the same drills and stations. Objectives are rebuilt for whoever is on the roster now, so nothing is stale."
+          yesLabel="Make a copy"
+          onNo={() => setReuse(false)}
+          onYes={async () => {
+            const present = ctx.players.filter((p) => p.status === 'active').map((p) => p.id);
+            const copy: Practice = {
+              ...practice,
+              id: newId(),
+              date: today(),
+              status: 'planned',
+              live: undefined,
+              recap: undefined,
+              title: practice.title ? `${practice.title} (again)` : undefined,
+              inputs: { ...practice.inputs, presentIds: present, absentIds: [], noThrowingIds: [] },
+              blocks: practice.blocks.map((b) => ({ ...b, id: newId(), groups: b.groups.map((g) => ({ ...g, id: newId() })), stations: b.stations.map((s) => ({ ...s, id: newId() })) })),
+              rationale: [`Copied from ${practice.title || fmtDate(practice.date)}.`],
+              createdAt: nowIso(),
+              updatedAt: nowIso()
+            };
+            // Re-seat everyone and rebuild objectives for the current roster.
+            let next = copy;
+            for (const id of present) next = adjustPractice(next, { kind: 'add_player', playerId: id }, ctx);
+            next = adjustPractice(next, { kind: 'coaches', coaches: practice.inputs.coaches }, ctx);
+            await savePractice(next);
+            setReuse(false);
+            nav(`/practices/${next.id}`);
+          }}
+        />
+      )}
       {adjust && <AdjustSheet practice={practice} players={players} onApply={applyAdjust} onClose={() => setAdjust(false)} />}
       {edit && (
         <EditStationSheet
           practice={practice}
-          block={edit.block}
-          station={edit.station}
+          block={practice.blocks.find((b) => b.id === edit.block.id) ?? edit.block}
+          station={practice.blocks.find((b) => b.id === edit.block.id)?.stations.find((s) => s.id === edit.station.id) ?? edit.station}
           drills={drills}
           onClose={() => setEdit(null)}
           onPick={async (drillId) => {
@@ -114,7 +164,7 @@ export function PracticePlanPage() {
           }}
           onRegen={async (category) => { await regen(edit.block, edit.station, category); setEdit(null); }}
           onNote={async (nameOverride, notes) => {
-            await save({ ...practice, blocks: practice.blocks.map((b) => (b.id !== edit.block.id ? b : { ...b, stations: b.stations.map((s) => (s.id === edit.station.id ? { ...s, nameOverride: nameOverride || undefined, notes: notes ? `category:${(s.notes?.match(/^category:(\w+)/)?.[1] ?? 'hitting')}\n${notes}` : s.notes } : s)) })) }, 'Saved');
+            await save({ ...practice, blocks: practice.blocks.map((b) => (b.id !== edit.block.id ? b : { ...b, stations: b.stations.map((s) => (s.id === edit.station.id ? { ...s, nameOverride: nameOverride || undefined, category: stationCategory(s), notes: notes || undefined } : s)) })) }, 'Saved');
             setEdit(null);
           }}
           onObjective={async (playerId, technical, mental) => {
@@ -122,7 +172,7 @@ export function PracticePlanPage() {
           }}
         />
       )}
-      {del && <Confirm title="Delete this practice?" text="The plan and its notes from live mode are removed from this device. Backups keep their copy." danger yesLabel="Delete" onNo={() => setDel(false)} onYes={async () => { await db.practices.delete(practice.id); nav('/practices'); }} />}
+      {del && <Confirm title="Delete this practice?" text="The plan is removed from this device. Notes you took during it stay with the players. Backups keep their copy." danger yesLabel="Delete" onNo={() => setDel(false)} onYes={async () => { await deletePractice(practice.id); nav('/practices'); }} />}
       {toast.el}
     </div>
   );
@@ -130,6 +180,16 @@ export function PracticePlanPage() {
 
 function minuteLabel(m: number): string {
   return `${m}'`;
+}
+
+function MoveChip({ name, groups, onMove }: { name: string; groups: Array<{ id: string; name: string }>; onMove: (toGroupId: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="row" style={{ gap: 4 }}>
+      <button className={`chip sm ${open ? 'on' : ''}`} onClick={() => setOpen(!open)}>{name}</button>
+      {open && groups.map((g) => <button key={g.id} className="chip sm" onClick={() => { onMove(g.id); setOpen(false); }}>→ {g.name}</button>)}
+    </span>
+  );
 }
 
 function AdjustSheet({ practice, players, onApply, onClose }: { practice: Practice; players: Map<string, import('../../engine/types').Player>; onApply: (a: Adjustment) => void; onClose: () => void }) {
@@ -173,6 +233,9 @@ function AdjustSheet({ practice, players, onApply, onClose }: { practice: Practi
       {tab === 'place' && (
         <>
           {!practice.inputs.indoor && <button className="btn block" onClick={() => onApply({ kind: 'indoor' })} style={{ marginBottom: 10 }}>Rain: move indoors</button>}
+          <div className="field"><label>Space (now {SPACE_LABEL[practice.inputs.space]})</label>
+            <div className="chips">{(['tight', 'half', 'full'] as Space[]).filter((sp) => sp !== practice.inputs.space).map((sp) => <button key={sp} className="chip sm" onClick={() => onApply({ kind: 'space', space: sp })}>{SPACE_LABEL[sp]}</button>)}</div>
+          </div>
           <div className="field"><label>Equipment actually here</label>
             <div className="chips">{(Object.keys(EQUIPMENT_LABEL) as Equipment[]).map((e) => <button key={e} className={`chip sm ${equipment.has(e) ? 'on' : ''}`} onClick={() => { const n = new Set(equipment); if (n.has(e)) n.delete(e); else n.add(e); setEquipment(n); }}>{EQUIPMENT_LABEL[e]}</button>)}</div>
           </div>
@@ -191,7 +254,7 @@ function EditStationSheet({ practice, block, station, drills, onClose, onPick, o
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<Category | ''>('');
   const [name, setName] = useState(station.nameOverride ?? '');
-  const [notes, setNotes] = useState(station.notes?.replace(/^category:\w+\n?/, '') ?? '');
+  const [notes, setNotes] = useState(stationNote(station));
   const [editing, setEditing] = useState<string | null>(null);
   const [tech, setTech] = useState('');
   const [mental, setMental] = useState('');

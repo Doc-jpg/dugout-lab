@@ -45,9 +45,11 @@ export function Sheet({ title, onClose, children, footer, onBack }: SheetProps) 
 
 export function useToast() {
   const [msg, setMsg] = React.useState<string | null>(null);
-  const show = React.useCallback((m: string, ms = 1800) => {
+  const timer = React.useRef<number | undefined>(undefined);
+  const show = React.useCallback((m: string, ms = 2200) => {
     setMsg(m);
-    window.setTimeout(() => setMsg(null), ms);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setMsg(null), ms);
   }, []);
   const el = msg ? <div className="toast">{msg}</div> : null;
   return { show, el };

@@ -93,8 +93,9 @@ export function LivePracticePage() {
   };
   const swapStation = async (easier: boolean) => {
     const nextP = easier ? setStationProgression(practice, block.id, station.id, 'easier', ctx) : regenerateStation(practice, block.id, station.id, { ...ctx, seed: Date.now() }, {});
-    await savePractice(nextP);
-    toast.show(easier ? 'Easier version at this station' : 'Station swapped');
+    const changed = JSON.stringify(nextP.blocks) !== JSON.stringify(practice.blocks);
+    if (changed) await savePractice(nextP);
+    toast.show(!changed ? 'Nothing else fits here; try a different drill from the plan page' : easier ? 'Easier version at this station' : 'Station swapped');
     setSwap(false);
   };
 
@@ -104,8 +105,8 @@ export function LivePracticePage() {
         <button className="btn ghost sm" onClick={() => nav(`/practices/${practice.id}`)}>‹ Plan</button>
         <div className="row">
           {!online && <span className="pill">Offline, saving on phone</span>}
-          <button className="btn sm" onClick={() => setFreeNote(true)}>+ Note</button>
-          <button className="btn sm" onClick={() => nav(`/practices/${practice.id}/recap`)}>Finish</button>
+          <button className="btn" onClick={() => setFreeNote(true)}>+ Note</button>
+          <button className="btn" onClick={() => nav(`/practices/${practice.id}/recap`)}>Finish</button>
         </div>
       </div>
 
@@ -113,24 +114,24 @@ export function LivePracticePage() {
         <div className="muted small">{block.title} · {block.wholeTeam ? `${live.rotation + 1} of ${rotations}` : `rotation ${live.rotation + 1} of ${rotations}`} · block {live.blockIndex + 1} of {practice.blocks.length}</div>
         <div className={`timer ${remaining < 0 ? 'over' : remaining < 60 ? 'warn' : ''}`}>{timerText}</div>
         <div className="row" style={{ justifyContent: 'center', marginTop: 8 }}>
-          <button className="btn sm" onClick={() => addMinutes(-2)}>-2</button>
+          <button className="btn" onClick={() => addMinutes(-2)} aria-label="Two minutes less">-2</button>
           <button className="btn" onClick={pause}>{live.paused ? 'Resume' : 'Pause'}</button>
-          <button className="btn sm" onClick={() => addMinutes(2)}>+2</button>
+          <button className="btn" onClick={() => addMinutes(2)} aria-label="Two minutes more">+2</button>
         </div>
         <div className="row" style={{ justifyContent: 'center', marginTop: 8 }}>
           <button className="btn sm ghost" onClick={back} disabled={live.rotation === 0 && live.blockIndex === 0}>‹ Back</button>
-          <button className="btn primary" onClick={next}>{live.rotation + 1 < rotations ? 'Next rotation ›' : nextBlock ? `Next: ${nextBlock.title} ›` : 'Wrap up ›'}</button>
+          <button className="btn primary" onClick={next}>{live.rotation + 1 < rotations ? 'Next rotation ›' : nextBlock ? `Next: ${nextBlock.title} ›` : 'Finish ›'}</button>
         </div>
         {nextBlock && live.rotation + 1 >= rotations && <div className="muted small" style={{ marginTop: 6 }}>Up next: {nextBlock.title}, {nextBlock.minutes} min</div>}
       </div>
 
       {!block.wholeTeam && block.stations.length > 1 && (
         <div className="chips" style={{ margin: '10px 0 6px' }}>
-          {block.stations.map((s, i) => <button key={s.id} className={`chip sm ${i === stationIdx ? 'on' : ''}`} onClick={() => setStationIdx(i)}>{s.nameOverride || drillMap.get(s.drillId)?.name || `Station ${i + 1}`}</button>)}
+          {block.stations.map((s, i) => <button key={s.id} className={`chip ${i === stationIdx ? 'on' : ''}`} onClick={() => setStationIdx(i)}>{s.nameOverride || drillMap.get(s.drillId)?.name || `Station ${i + 1}`}</button>)}
         </div>
       )}
 
-      <StationCard key={station.id + String(live.rotation)} block={block} station={station} drill={drillMap.get(station.drillId)} players={players} groupLabel={block.wholeTeam ? undefined : groupHere?.name} highlightIds={block.wholeTeam ? undefined : hereIds} expanded actions={<button className="btn sm" onClick={() => setSwap(true)}>This station is not working</button>} />
+      <StationCard key={station.id + String(live.rotation)} block={block} station={station} drill={drillMap.get(station.drillId)} players={players} groupLabel={block.wholeTeam ? undefined : groupHere?.name} highlightIds={block.wholeTeam ? undefined : hereIds} expanded actions={<button className="btn" onClick={() => setSwap(true)}>This station is not working</button>} />
 
       <div className="section-title"><h3>Quick note</h3><span className="muted small">{todayObs.length} so far</span></div>
       <div className="chips">
@@ -161,7 +162,7 @@ export function LivePracticePage() {
           <div className="col">
             <button className="btn block" onClick={() => swapStation(true)}>Run the easier version (same drill)</button>
             <button className="btn block" onClick={() => swapStation(false)}>Swap in a different drill</button>
-            <button className="btn block" onClick={async () => { await savePractice(adjustPractice(practice, { kind: 'coaches', coaches: Math.max(1, practice.inputs.coaches - 1) }, ctx)); setSwap(false); setStationIdx(0); toast.show('One fewer station'); }}>Lost a coach: merge stations</button>
+            {practice.inputs.coaches > 1 && <button className="btn block" onClick={async () => { await savePractice(adjustPractice(practice, { kind: 'coaches', coaches: practice.inputs.coaches - 1 }, ctx)); setSwap(false); setStationIdx(0); toast.show('Stations merged for one fewer coach'); }}>Lost a coach: merge stations</button>}
           </div>
         </Sheet>
       )}

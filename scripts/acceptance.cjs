@@ -97,7 +97,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   for (let i = 0; i < 4 && !/Fundamentals · rotation/i.test(await body()); i++) { await page.getByRole('button', { name: /Next/ }).first().click(); await settle(400); }
   expect('reached the fundamentals block', /Fundamentals · rotation 1 of/i.test(await body()), true);
   // Now in fundamentals: station chips exist
-  const chips = page.locator('.chips .chip.sm');
+  const chips = page.locator('.chips').first().locator('.chip');
   expect('station chips in a rotating block', (await chips.count()) >= 2, true);
   const nameChips = page.locator('.chips').last().locator('.chip');
   const firstName = (await nameChips.first().innerText()).replace(/ \(\d+\)$/, '');
@@ -173,13 +173,18 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   expect('email draft has subject', /Subject: Jonah: quick update/.test(await page.locator('.sheet').innerText()), true);
   await page.locator('.sheet-head >> role=button[name="Close"]').click();
   await page.waitForSelector('.sheet', { state: 'detached' });
-  const [popup] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: 'Scorecard', exact: true }).click()]);
-  await popup.waitForLoadState();
-  const card = await popup.locator('body').innerText();
+  // Scorecard opens in-app (an iframe sheet with Print and Share), not a popup: popups fail on an installed iPhone app
+  await page.getByRole('button', { name: 'Scorecard', exact: true }).click();
+  await page.waitForSelector('.sheet iframe');
+  const frame = page.frameLocator('.sheet iframe');
+  await frame.locator('body').waitFor();
+  const card = await frame.locator('body').innerText();
   expect('scorecard shows Jonah', /Jonah Pike #2/.test(card), true);
   expect('scorecard shows a team band, not names', /team \d to \d, middle \d, \d+ assessed/.test(card) && !/Sam|Theo|Ellis/.test(card), true);
   expect('scorecard says not a ranking', /Nothing here is a ranking/.test(card), true);
-  await popup.close();
+  expect('scorecard sheet has Print and Share', (await page.locator('.sheet >> role=button[name="Print"]').count()) === 1 && (await page.locator('.sheet >> role=button[name="Share"]').count()) === 1, true);
+  await page.locator('.sheet-head >> role=button[name="Close"]').click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
   await shot(page, '09_family');
   await page.goto(URL + '#/parents');
   await page.waitForSelector('text=Parent updates');
@@ -228,7 +233,10 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   // Test G: backup, then restore into a fresh profile
   await page.goto(URL + '#/settings');
   await page.waitForSelector('text=Backup');
-  const [download] = await Promise.all([page.waitForEvent('download'), page.click('role=button[name="Back up now"]')]);
+  // Backup is two steps: build it, then the sheet's Save or share button hands it to the share sheet or downloads it
+  await page.click('role=button[name="Back up now"]');
+  await page.waitForSelector('text=Backup ready');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('role=button[name="Save or share it"]')]);
   const file = path.join(shotsDir, 'backup.zip');
   await download.saveAs(file);
   expect('backup downloaded', fs.statSync(file).size > 2000, true);

@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { usePlayer, useObservations, useDrills, useVariants, usePractices, useThrowing, timeAgo, fmtDate, useTeam } from '../hooks';
-import { updatePlayer, addGoal, addObservation, addThrowing, playerName, db } from '../../db/db';
+import { usePlayer, useObservations, useDrills, useVariants, usePractices, useThrowing, timeAgo, fmtDate, useTeam, useTeams } from '../hooks';
+import { updatePlayer, addGoal, addObservation, addThrowing, playerName, db, deletePlayer, movePlayer } from '../../db/db';
 import { suggestionsFor } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
 import {
-  CATEGORIES, CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, APPROACH_LABEL, POSITIONS, AGE_GROUPS, today, teamAgeGroup,
+  CATEGORIES, CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, APPROACH_LABEL, POSITIONS, AGE_GROUPS, today, teamAgeGroup, RESTRICTION_LABEL, activeRestrictions,
+  type RestrictionKind, type Restriction,
   type Category, type Level, type SkillStatus, type CoachingApproach, type Player, type Hand, type Position, type Goal
 } from '../../engine/types';
 import { READ_LABEL } from './LivePracticePage';
@@ -33,7 +34,10 @@ export function PlayerPage() {
   const [noteSheet, setNoteSheet] = useState(false);
   const [throwSheet, setThrowSheet] = useState(false);
   const [levelSheet, setLevelSheet] = useState<Category | null>(null);
+  const [limitSheet, setLimitSheet] = useState(false);
   const [del, setDel] = useState(false);
+  const [delNote, setDelNote] = useState<string | null>(null);
+  const teams = useTeams();
   const suggestions = useMemo(() => (p ? suggestionsFor(p, observations, drills) : []), [p, observations, drills]);
   if (!p) return <div className="empty">Player not found.</div>;
 
@@ -55,6 +59,7 @@ export function PlayerPage() {
       <h1 style={{ marginBottom: 0 }}>{p.number ? `#${p.number} ` : ''}{playerName(p)}</h1>
       <div className="muted small">{[p.positions.join('/'), p.bats ? `bats ${p.bats}` : '', p.throws ? `throws ${p.throws}` : '', p.ageGroup, p.experience].filter(Boolean).join(' · ')}{p.status !== 'active' ? ' · inactive' : ''}</div>
       {flag && flag.status !== 'ok' && <div className="banner warn small" style={{ marginTop: 6 }}>Arm: {flag.message}</div>}
+      {activeRestrictions(p, today()).length > 0 && <div className="banner warn small" style={{ marginTop: 6 }}>Limits: {activeRestrictions(p, today()).map((r) => `${RESTRICTION_LABEL[r.kind]}${r.until ? ` until ${fmtDate(r.until)}` : ''}${r.note ? ` (${r.note})` : ''}`).join(' · ')} <button className="btn sm ghost" onClick={() => setLimitSheet(true)}>Edit</button></div>}
 
       <div className="chips" style={{ margin: '10px 0' }}>
         {(['today', 'profile', 'notes', 'progress', 'family'] as const).map((t) => <button key={t} className={`chip ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{t === 'today' ? 'Today' : t === 'profile' ? 'Profile' : t === 'notes' ? `Notes (${observations.length})` : t === 'progress' ? 'Progress' : 'Family'}</button>)}
@@ -106,6 +111,7 @@ export function PlayerPage() {
           <div className="row wrap">
             <button className="btn" onClick={() => setNoteSheet(true)}>+ Note</button>
             <button className="btn" onClick={() => setThrowSheet(true)}>+ Pitches thrown</button>
+            <button className="btn" onClick={() => setLimitSheet(true)}>Limits (hurt, out)</button>
           </div>
         </>
       )}
@@ -133,8 +139,9 @@ export function PlayerPage() {
             {p.goals.filter((g) => g.status !== 'active').map((g) => <div key={g.id} className="small muted">· {CATEGORY_LABEL[g.category]}: {g.text} ({g.status}{g.doneAt ? `, ${timeAgo(g.doneAt)}` : ''})</div>)}
             {p.goals.every((g) => g.status === 'active') && <div className="muted small">No finished or paused goals.</div>}
           </div>
-          <div className="row" style={{ marginTop: 10 }}>
+          <div className="row wrap" style={{ marginTop: 10 }}>
             <button className="btn sm" onClick={() => updatePlayer(p.id, { status: p.status === 'active' ? 'inactive' : 'active' })}>{p.status === 'active' ? 'Mark inactive' : 'Mark active'}</button>
+            {teams.filter((t) => t.id !== p.teamId).map((t) => <button key={t.id} className="btn sm" onClick={async () => { await movePlayer(p.id, t.id); toast.show(`Moved to ${t.shortName ?? t.name}`); }}>Move to {t.shortName ?? t.name}</button>)}
             <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setDel(true)}>Delete player</button>
           </div>
         </>
@@ -151,7 +158,7 @@ export function PlayerPage() {
                   {o.text && <div>{o.text}</div>}
                   <div className="muted">{timeAgo(o.ts)}{o.by ? ` · ${o.by}` : ''}</div>
                 </div>
-                <button className="btn sm ghost" onClick={async () => { await db.observations.delete(o.id); toast.show('Removed'); }} aria-label="Remove">✕</button>
+                <button className="btn sm ghost" onClick={() => setDelNote(o.id)} aria-label="Remove this note">✕</button>
               </div>
             ))}
             {observations.length === 0 && <div className="empty">No notes yet.</div>}
@@ -197,8 +204,10 @@ export function PlayerPage() {
       {goalSheet && <GoalSheet p={p} onClose={() => setGoalSheet(false)} onSaved={() => { setGoalSheet(false); toast.show('Goal added'); }} />}
       {noteSheet && <NoteSheet p={p} onClose={() => setNoteSheet(false)} onSaved={() => { setNoteSheet(false); toast.show('Note saved'); }} />}
       {throwSheet && <ThrowSheet p={p} onClose={() => setThrowSheet(false)} onSaved={() => { setThrowSheet(false); toast.show('Logged'); }} />}
+      {limitSheet && <LimitSheet p={p} onClose={() => setLimitSheet(false)} onSaved={() => { setLimitSheet(false); toast.show('Saved'); }} />}
       {levelSheet && <LevelSheet p={p} category={levelSheet} onClose={() => setLevelSheet(null)} onSaved={() => { setLevelSheet(null); toast.show('Saved'); }} />}
-      {del && <Confirm title={`Delete ${playerName(p, 'first')}?`} text="His profile, goals, notes and drill versions are removed from this device. Backups keep their copy." danger yesLabel="Delete" onNo={() => setDel(false)} onYes={async () => { await db.transaction('rw', [db.players, db.observations, db.variants, db.throwing], async () => { await db.observations.where('playerId').equals(p.id).delete(); await db.variants.where('playerId').equals(p.id).delete(); await db.throwing.where('playerId').equals(p.id).delete(); await db.players.delete(p.id); }); nav('/players'); }} />}
+      {delNote && <Confirm title="Remove this note?" text="It comes out of his history and out of any suggestion built on it." danger yesLabel="Remove" onNo={() => setDelNote(null)} onYes={async () => { await db.observations.delete(delNote); setDelNote(null); toast.show('Removed'); }} />}
+      {del && <Confirm title={`Delete ${playerName(p, 'first')}?`} text="His profile, goals, notes and drill versions are removed from this device. Backups keep their copy." danger yesLabel="Delete" onNo={() => setDel(false)} onYes={async () => { await deletePlayer(p.id); nav('/players'); }} />}
       {toast.el}
     </div>
   );
@@ -321,6 +330,28 @@ function LevelSheet({ p, category, onClose, onSaved }: { p: Player; category: Ca
       <div className="field"><label>Level</label><div className="chips">{([1, 2, 3, 4, 5] as Level[]).map((l) => <button key={l} className={`chip ${level === l ? 'on' : ''}`} onClick={() => setLevel(level === l ? undefined : l)}>{l} {LEVEL_LABEL[l]}</button>)}</div></div>
       <div className="field"><label>Status</label><div className="chips">{(Object.keys(STATUS_LABEL) as SkillStatus[]).map((s) => <button key={s} className={`chip sm ${status === s ? 'on' : ''}`} onClick={() => setStatus(status === s ? undefined : s)}>{STATUS_LABEL[s]}</button>)}</div></div>
       <p className="muted small">Your assessment, with today's date behind it. Change it whenever you see something new.</p>
+    </Sheet>
+  );
+}
+
+function LimitSheet({ p, onClose, onSaved }: { p: Player; onClose: () => void; onSaved: () => void }) {
+  const [list, setList] = useState<Restriction[]>(p.restrictions ?? []);
+  const kinds = Object.keys(RESTRICTION_LABEL) as RestrictionKind[];
+  const toggle = (k: RestrictionKind) => setList(list.some((r) => r.kind === k) ? list.filter((r) => r.kind !== k) : [...list, { kind: k }]);
+  const set = (k: RestrictionKind, patch: Partial<Restriction>) => setList(list.map((r) => (r.kind === k ? { ...r, ...patch } : r)));
+  return (
+    <Sheet title={`Limits for ${playerName(p, 'first')}`} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" onClick={async () => { await updatePlayer(p.id, { restrictions: list }); onSaved(); }}>Save</button></>}>
+      <p className="muted small">Temporary. The plan works around it (no-throwing goes on the arm list, no hitting or running changes his objective, out keeps him off the roster for the day) and it clears itself after the date. Not medical advice; your call and the family's.</p>
+      <div className="chips">{kinds.map((k) => <button key={k} className={`chip ${list.some((r) => r.kind === k) ? 'on' : ''}`} onClick={() => toggle(k)}>{RESTRICTION_LABEL[k]}</button>)}</div>
+      {list.map((r) => (
+        <div key={r.kind} className="card" style={{ padding: 10, marginTop: 8 }}>
+          <div className="title">{RESTRICTION_LABEL[r.kind]}</div>
+          <div className="inline-fields">
+            <div className="field"><label>Until (optional)</label><input className="input" type="date" value={r.until ?? ''} onChange={(e) => set(r.kind, { until: e.target.value || undefined })} /></div>
+            <div className="field"><label>Note</label><input className="input" value={r.note ?? ''} onChange={(e) => set(r.kind, { note: e.target.value || undefined })} placeholder="sore elbow" /></div>
+          </div>
+        </div>
+      ))}
     </Sheet>
   );
 }

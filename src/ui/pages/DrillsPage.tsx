@@ -2,11 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDrills, useVariants } from '../hooks';
 import { createDrill } from '../../db/db';
-import { CATEGORIES, CATEGORY_LABEL, BLOCK_LABEL, type Category, type BlockKind, type Drill } from '../../engine/types';
+import { CATEGORIES, CATEGORY_LABEL, BLOCK_LABEL, STYLE_WORD, type Category, type BlockKind, type Drill } from '../../engine/types';
 import { DrillEditor } from '../components/DrillEditor';
 import { useToast } from '../components/Sheet';
-
-const STYLE_WORD: Record<string, string> = { blocked: 'reps', variable: 'mixed reps', random: 'game-speed mix', decision: 'make a read', game: 'competition' };
 
 export function DrillsPage() {
   const drills = useDrills();
@@ -17,9 +15,10 @@ export function DrillsPage() {
   const [cat, setCat] = useState<Category | ''>('');
   const [block, setBlock] = useState<BlockKind | ''>('');
   const [mine, setMine] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [creating, setCreating] = useState(false);
   const list = useMemo(() => drills
-    .filter((d) => !d.archived && (!cat || d.category === cat || d.also?.includes(cat)) && (!block || d.blocks.includes(block)) && (!mine || d.source === 'custom') && (!q || `${d.name} ${d.tags.join(' ')} ${d.objective}`.toLowerCase().includes(q.toLowerCase())))
+    .filter((d) => (hidden ? d.archived : !d.archived) && (!cat || d.category === cat || d.also?.includes(cat)) && (!block || d.blocks.includes(block)) && (!mine || d.source === 'custom') && (!q || `${d.name} ${d.tags.join(' ')} ${d.objective}`.toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => a.category.localeCompare(b.category) || a.levelMin - b.levelMin || a.name.localeCompare(b.name)), [drills, cat, block, mine, q]);
   const variantCount = (id: string) => variants.filter((v) => v.drillId === id).length;
   return (
@@ -31,6 +30,7 @@ export function DrillsPage() {
       <input className="input" placeholder="Search by name, tag or goal" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="chips" style={{ margin: '8px 0' }}>
         <button className={`chip sm ${mine ? 'on' : ''}`} onClick={() => setMine(!mine)}>My drills</button>
+        {drills.some((d) => d.archived) && <button className={`chip sm ${hidden ? 'on' : ''}`} onClick={() => setHidden(!hidden)}>Hidden</button>}
         {CATEGORIES.map((c) => <button key={c} className={`chip sm ${cat === c ? 'on' : ''}`} onClick={() => setCat(cat === c ? '' : c)}>{CATEGORY_LABEL[c]}</button>)}
       </div>
       <div className="chips" style={{ marginBottom: 8 }}>

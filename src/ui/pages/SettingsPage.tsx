@@ -4,10 +4,11 @@ import { useSettings, useTeams, useCurrentTeam, usePlayers } from '../hooks';
 import { saveSettings, createTeam, updateTeam, storageHealth, requestPersistence, db, playerName, type StorageHealth } from '../../db/db';
 import { buildBackup, buildCoachPack, readBackup, restoreBackup, readDugoutDadArchive, planRosterImport, commitRosterImport, shareOrDownload, type BackupContents, type RestoreReport, type DugoutDadRoster, type RosterImportPlan } from '../../io/backup';
 import { loadDemoData, removeDemoData, DEMO_TEAM_ID } from '../../data/demo';
-import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, nowIso, teamAgeGroup, ageGroupForClass, seasonYearFor, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
+import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, nowIso, teamAgeGroup, ageGroupForClass, seasonYearFor, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
 import { APP_VERSION } from '../version';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 import { BrandSheet } from '../components/BrandSheet';
+import { pinHashFor } from '../components/LockScreen';
 
 export function SettingsPage() {
   const settings = useSettings();
@@ -34,18 +35,26 @@ export function SettingsPage() {
     }
   }, []);
 
+  const [ready, setReady] = useState<{ bytes: Uint8Array; fileName: string; records: number; kind: 'backup' | 'pack' } | null>(null);
+  // Build first, then share on a fresh tap (iOS needs the share to start from a tap), and only stamp "last backup" when it went somewhere.
   const exportBackup = async () => {
     setBusy(true);
     try {
       const { bytes, fileName, manifest } = await buildBackup(APP_VERSION);
-      const how = await shareOrDownload(bytes, fileName);
-      await saveSettings({ lastBackupAt: nowIso() });
-      toast.show(`${how === 'shared' ? 'Shared' : 'Downloaded'} ${fileName} (${Object.values(manifest.files).reduce((s, f) => s + f.records, 0)} records)`);
+      setReady({ bytes, fileName, records: Object.values(manifest.files).reduce((s, f) => s + f.records, 0), kind: 'backup' });
     } catch (e: any) {
       toast.show(`Backup failed: ${e?.message ?? e}`);
     } finally {
       setBusy(false);
     }
+  };
+  const shareReady = async () => {
+    if (!ready) return;
+    const how = await shareOrDownload(ready.bytes, ready.fileName);
+    if (how === 'cancelled') return toast.show('Cancelled; nothing was saved');
+    if (ready.kind === 'backup') await saveSettings({ lastBackupAt: nowIso() });
+    toast.show(`${how === 'shared' ? 'Shared' : 'Downloaded'} ${ready.fileName}`);
+    setReady(null);
   };
   const pickFile = (accept: string, onFile: (bytes: Uint8Array, name: string) => void) => {
     const input = document.createElement('input');
@@ -107,11 +116,11 @@ export function SettingsPage() {
         <div className="section-title" style={{ marginTop: 0 }}><h3>Practice defaults</h3></div>
         <div className="field"><label>Usual length</label><div className="chips">{[60, 75, 90, 120].map((m) => <button key={m} className={`chip sm ${settings.defaultDurationMin === m ? 'on' : ''}`} onClick={() => saveSettings({ defaultDurationMin: m })}>{m} min</button>)}</div></div>
         <div className="field"><label>Usual coaches</label><div className="chips">{[1, 2, 3, 4].map((n) => <button key={n} className={`chip sm ${settings.defaultCoaches === n ? 'on' : ''}`} onClick={() => saveSettings({ defaultCoaches: n })}>{n}</button>)}</div></div>
-        <div className="field"><label>Usual space</label><div className="chips">{(['tight', 'half', 'full'] as Space[]).map((s) => <button key={s} className={`chip sm ${settings.defaultSpace === s ? 'on' : ''}`} onClick={() => saveSettings({ defaultSpace: s })}>{s}</button>)}</div></div>
+        <div className="field"><label>Usual space</label><div className="chips">{(['tight', 'half', 'full'] as Space[]).map((s) => <button key={s} className={`chip sm ${settings.defaultSpace === s ? 'on' : ''}`} onClick={() => saveSettings({ defaultSpace: s })}>{SPACE_LABEL[s]}</button>)}</div></div>
         <div className="field"><label>Equipment you usually have</label><div className="chips">{(Object.keys(EQUIPMENT_LABEL) as Equipment[]).map((e) => <button key={e} className={`chip sm ${settings.defaultEquipment.includes(e) ? 'on' : ''}`} onClick={() => saveSettings({ defaultEquipment: settings.defaultEquipment.includes(e) ? settings.defaultEquipment.filter((x) => x !== e) : [...settings.defaultEquipment, e] })}>{EQUIPMENT_LABEL[e]}</button>)}</div></div>
-        <div className="field"><label>Your name on parent drafts ("Coach ...")</label><input className="input" value={settings.coachName ?? ''} onChange={(e) => saveSettings({ coachName: e.target.value || undefined })} placeholder="Deren" /></div>
+        <div className="field"><label>Your name on parent drafts ("Coach ...")</label><TextSetting value={settings.coachName ?? ''} placeholder="Deren" onSave={(v) => saveSettings({ coachName: v || undefined })} /></div>
         <div className="field"><label>Suggest a parent update after</label><div className="chips">{[2, 3, 4, 6].map((n) => <button key={n} className={`chip sm ${settings.parentUpdateEveryPractices === n ? 'on' : ''}`} onClick={() => saveSettings({ parentUpdateEveryPractices: n })}>{n} practices</button>)}</div></div>
-        <div className="field"><label>App name when a team has no program name</label><input className="input" value={settings.appName} onChange={(e) => saveSettings({ appName: e.target.value || 'Dugout Lab' })} /><div className="muted small">The home-screen icon's name is set when it is added and does not change with this.</div></div>
+        <div className="field"><label>App name when a team has no program name</label><TextSetting value={settings.appName} placeholder="Dugout Lab" onSave={(v) => saveSettings({ appName: v || 'Dugout Lab' })} /><div className="muted small">The home-screen icon's name is set when it is added and does not change with this.</div></div>
       </div>
 
       <div className="card" id="backup">
@@ -129,7 +138,7 @@ export function SettingsPage() {
         <div className="section-title" style={{ marginTop: 0 }}><h3>Other coaches</h3></div>
         <p className="muted small" style={{ marginTop: 0 }}>Each coach runs the app on his own phone. Send an assistant a coach pack (roster, drills, player versions and the plan; no family contacts, no private notes). He takes notes at his station, backs up after practice, sends you the file, and you merge it here: notes add up, each one tagged with who wrote it, nothing overwritten. Put your name in "Your name on parent drafts" above so your notes carry it too.</p>
         <div className="row wrap">
-          <button className="btn" disabled={!team || busy} onClick={async () => { if (!team) return; setBusy(true); try { const { bytes, fileName } = await buildCoachPack(APP_VERSION, team.id); const how = await shareOrDownload(bytes, fileName); toast.show(`${how === 'shared' ? 'Shared' : 'Downloaded'} ${fileName}`); } finally { setBusy(false); } }}>Share a coach pack</button>
+          <button className="btn" disabled={!team || busy} onClick={async () => { if (!team) return; setBusy(true); try { const { bytes, fileName } = await buildCoachPack(APP_VERSION, team.id); setReady({ bytes, fileName, records: 0, kind: 'pack' }); } finally { setBusy(false); } }}>Share a coach pack</button>
           <button className="btn" onClick={openBackup}>Merge a coach's backup</button>
         </div>
       </div>
@@ -151,12 +160,24 @@ export function SettingsPage() {
       </div>
 
       <div className="card">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>App lock</h3><span className="muted small">{settings.pinHash ? 'on' : 'off'}</span></div>
+        <p className="muted small" style={{ marginTop: 0 }}>A PIN the app asks for when it opens and after ten minutes in the background. Keeps a borrowed phone out of the kids' notes. It is a lock on the door, not a safe: keep a backup file somewhere else.</p>
+        <PinControls hasPin={!!settings.pinHash} onSet={async (pin) => { const salt = Math.random().toString(36).slice(2, 12); await saveSettings({ pinSalt: salt, pinHash: await pinHashFor(pin, salt) }); toast.show('PIN set'); }} onClear={async () => { await saveSettings({ pinHash: undefined, pinSalt: undefined }); toast.show('PIN removed'); }} />
+      </div>
+
+      <div className="card">
         <div className="section-title" style={{ marginTop: 0 }}><h3>About</h3></div>
         <p className="small muted">Dugout Lab {APP_VERSION}. No account, no server, no tracking. Everything stays on this device until you back it up. Notes about players are private to you. <Link to="/help">How it works</Link>.</p>
         <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setWipe(true)}>Erase everything on this device</button>
       </div>
 
       {brandSheet && team && <BrandSheet team={team} onClose={() => setBrandSheet(false)} onSaved={() => { setBrandSheet(false); toast.show('Branding saved'); }} />}
+      {ready && (
+        <Sheet title={ready.kind === 'backup' ? 'Backup ready' : 'Coach pack ready'} onClose={() => setReady(null)} footer={<><button className="btn" onClick={() => setReady(null)}>Cancel</button><button className="btn primary" onClick={shareReady}>{ready.kind === 'backup' ? 'Save or share it' : 'Share it'}</button></>}>
+          <div className="small">{ready.fileName} · {(ready.bytes.length / 1024).toFixed(0)} KB{ready.records ? ` · ${ready.records} records` : ''}</div>
+          <p className="muted small">On an iPhone this opens the share sheet: Save to Files, AirDrop, Mail, Messages. On a computer it downloads.</p>
+        </Sheet>
+      )}
       {teamSheet && <TeamSheet mode={teamSheet} team={teamSheet === 'edit' ? team : undefined} onClose={() => setTeamSheet(null)} onSaved={() => { setTeamSheet(null); toast.show('Saved'); }} />}
       {restore && (
         <Sheet title="Restore from backup" onClose={() => setRestore(null)}>
@@ -226,4 +247,29 @@ function TeamSheet({ mode, team, onClose, onSaved }: { mode: 'new' | 'edit'; tea
       <div className="field"><label>Team priorities, in order (up to four)</label><div className="chips">{CATEGORIES.map((c) => { const i = priorities.indexOf(c); return <button key={c} className={`chip sm ${i >= 0 ? 'on' : ''}`} onClick={() => toggle(c)}>{i >= 0 ? `${i + 1}. ` : ''}{CATEGORY_LABEL[c]}</button>; })}</div></div>
     </Sheet>
   );
+}
+
+function PinControls({ hasPin, onSet, onClear }: { hasPin: boolean; onSet: (pin: string) => void; onClear: () => void }) {
+  const [pin, setPin] = useState('');
+  const [again, setAgain] = useState('');
+  const ok = pin.length >= 4 && pin === again;
+  return (
+    <div>
+      <div className="inline-fields">
+        <div className="field"><label>{hasPin ? 'New PIN' : 'PIN (4 to 8 digits)'}</label><input className="input" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))} /></div>
+        <div className="field"><label>Again</label><input className="input" type="password" inputMode="numeric" value={again} onChange={(e) => setAgain(e.target.value.replace(/\D/g, '').slice(0, 8))} /></div>
+      </div>
+      <div className="row wrap">
+        <button className="btn primary sm" disabled={!ok} onClick={() => { onSet(pin); setPin(''); setAgain(''); }}>{hasPin ? 'Change PIN' : 'Turn on'}</button>
+        {hasPin && <button className="btn sm" onClick={onClear}>Turn off</button>}
+      </div>
+    </div>
+  );
+}
+
+/** A text field that saves when you leave it, so typing on a phone is never fighting the database. */
+function TextSetting({ value, placeholder, onSave }: { value: string; placeholder?: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  return <input className="input" value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onBlur={() => { if (v !== value) onSave(v.trim()); }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />;
 }

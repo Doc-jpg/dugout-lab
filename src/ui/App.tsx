@@ -15,6 +15,8 @@ import { SettingsPage } from './pages/SettingsPage';
 import { HelpPage } from './pages/HelpPage';
 import { ParentsPage } from './pages/ParentsPage';
 import { SetupPage } from './pages/SetupPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { LockScreen } from './components/LockScreen';
 import { requestPersistence, seedLibrary } from '../db/db';
 import { useCurrentTeam } from './hooks';
 import { brandCss } from '../engine/brand';
@@ -43,6 +45,7 @@ export function App() {
     }
   }, [team?.brand?.primary, team?.brand?.accent]);
   return (
+    <LockScreen>
     <div className="app">
       <nav className="tabbar" aria-label="Main">
         <NavLink to="/today">{Icon.today}<span>Today</span></NavLink>
@@ -52,6 +55,7 @@ export function App() {
         <NavLink to="/progress">{Icon.progress}<span>Progress</span></NavLink>
       </nav>
       <main className="app-main">
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Navigate to="/today" replace />} />
           <Route path="/today" element={<TodayPage />} />
@@ -71,7 +75,9 @@ export function App() {
           <Route path="/help" element={<HelpPage />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
+        </ErrorBoundary>
       </main>
     </div>
+    </LockScreen>
   );
 }

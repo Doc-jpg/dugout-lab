@@ -15,10 +15,12 @@ export type ISODateTime = string;
 export const newId = (): ID =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 export const nowIso = (): ISODateTime => new Date().toISOString();
-export const today = (): ISODate => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+export const today = (): ISODate => localDate(new Date());
+/** The local calendar date of a moment (practice dates are local days; observation timestamps are UTC). */
+export function localDate(d: Date | string): ISODate {
+  const x = typeof d === 'string' ? new Date(d) : d;
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+}
 
 // ---------------------------------------------------------------------------
 // Development categories and levels
@@ -136,6 +138,19 @@ export const APPROACH_LABEL: Record<CoachingApproach, string> = {
   one_cue: 'One cue at a time', challenge: 'Make it a challenge', quiet_reps: 'Quiet reps, then talk'
 };
 
+export type RestrictionKind = 'no_throwing' | 'no_hitting' | 'no_running' | 'out';
+export const RESTRICTION_LABEL: Record<RestrictionKind, string> = { no_throwing: 'No throwing', no_hitting: 'No hitting', no_running: 'No running', out: 'Out (not practicing)' };
+export interface Restriction {
+  kind: RestrictionKind;
+  /** Last day it applies (inclusive). No date = until the coach clears it. */
+  until?: ISODate;
+  note?: string;
+}
+/** Restrictions in force on a date. */
+export function activeRestrictions(p: { restrictions?: Restriction[] }, date: ISODate): Restriction[] {
+  return (p.restrictions ?? []).filter((r) => !r.until || r.until >= date);
+}
+
 export interface ParentContact {
   name: string;
   relation?: string;
@@ -190,6 +205,8 @@ export interface Player {
   statuses: Partial<Record<Category, SkillStatus>>;
   /** Imported from Dugout Dad: keeps the same id so a later import matches. */
   importedFrom?: 'dugout-dad';
+  /** Temporary limits (sore arm, doctor's note, out this week). Expire on their own when `until` passes. */
+  restrictions?: Restriction[];
   /** Parent or guardian contacts for drafts (never auto-sent). */
   parents?: ParentContact[];
   /** What the family gets: nothing, a plain summary with home work, or the summary plus the scorecard. */
@@ -216,6 +233,16 @@ export const EQUIPMENT_LABEL: Record<Equipment, string> = {
 
 /** Practice block each drill fits. A drill may fit several. */
 export type BlockKind = 'warmup' | 'fundamentals' | 'focus' | 'gamelike' | 'compete' | 'reflect';
+/** A station's area: the field when present, else the old "category:x" note. */
+export function stationCategory(s: { category?: Category; notes?: string }): Category | undefined {
+  if (s.category) return s.category;
+  const m = /^category:(\w+)/.exec(s.notes ?? '');
+  return (m?.[1] as Category) ?? undefined;
+}
+/** A station's coach note without the old category marker. */
+export function stationNote(s: { notes?: string }): string {
+  return (s.notes ?? '').replace(/^category:\w+\n?/, '').trim();
+}
 export const BLOCK_LABEL: Record<BlockKind, string> = {
   warmup: 'Warm-up', fundamentals: 'Fundamentals', focus: 'Focused development', gamelike: 'Game-like decisions', compete: 'Compete and play', reflect: 'Reflection'
 };
@@ -269,10 +296,22 @@ export interface Drill {
   links?: Array<{ label: string; url: string }>;
   /** Practice style: blocked reps, variable, random/game, decision. Mix matters for retention. */
   style: 'blocked' | 'variable' | 'random' | 'decision' | 'game';
+  /** Common mistakes a coach will see, each with the fix. */
+  mistakes?: Array<{ see: string; fix: string }>;
+  /** One safety line, only when a real one exists. */
+  safety?: string;
+  /** One line on how to make it a game (score, clock, teams). */
+  competitive?: string;
+  /** Spacing or distances when they matter. */
+  spacing?: string;
   archived?: boolean;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
+
+/** Plain words for each practice style, for the interface. */
+export const STYLE_WORD: Record<'blocked' | 'variable' | 'random' | 'decision' | 'game', string> = { blocked: 'reps', variable: 'mixed reps', random: 'game-speed mix', decision: 'make a read', game: 'competition' };
+export const THROWING_LOAD_WORD: Record<'none' | 'light' | 'moderate' | 'high', string> = { none: 'no throwing', light: 'light throwing', moderate: 'some throwing', high: 'hard throwing' };
 
 /** A saved player-specific (or group-specific) version of a drill. The whole station runs one drill; each kid gets his own version. */
 export interface DrillVariant {
@@ -334,6 +373,8 @@ export interface PlayerObjective {
 export interface Station {
   id: ID;
   drillId: ID;
+  /** The drill's area at the time it was placed (older plans carry it inside `notes` as "category:x"). */
+  category?: Category;
   /** Group ids rotating through this station, in order. */
   coach?: string;
   objectives: PlayerObjective[];
@@ -468,6 +509,9 @@ export interface Settings {
   parentUpdateEveryPractices: number;
   /** Signature on drafts. */
   coachSignature?: string;
+  /** Optional app lock: SHA-256 of salt + PIN. The app asks for the PIN on open and after being in the background a while. */
+  pinHash?: string;
+  pinSalt?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

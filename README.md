@@ -28,6 +28,8 @@ Personalized youth baseball practice planning and player development. Private, o
 | Effort and attitude reads (hustled, good teammate, took the cue, went through the motions) in quick notes, drafts and scorecards | Working |
 | Branding per team: program name, tagline, logo upload, eyedropper and auto palette from the logo, primary and accent colors that restyle the app, coaches with contacts, footer; carried onto scorecards, home plans and parent drafts. White-label build via `BRAND_NAME` / `BRAND_COLOR` | Working |
 | Several coaches on their own phones: coach pack export (no private notes or contacts), notes tagged by coach, merge after practice with nothing overwritten | Working |
+| Player limits (no throwing, hitting or running until a date) honored by every plan; reuse a plan with objectives rebuilt for who is here; move players between groups; PIN lock | Working |
+| Coach notes on every library drill: common mistakes with the fix, safety line where one exists, spacing, make it a game; library audited (docs/DECISIONS.md, 2026-11-02 audit) | Working |
 | Demo team (fictional, marked, removable) | Working |
 | Offline: full app shell precached; verified reload with the network off and notes saved offline | Working |
 | Voice notes, video reference clips, multi-coach live sync | Roadmap (see docs/ROADMAP.md) |

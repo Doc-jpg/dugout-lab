@@ -4,7 +4,7 @@ import { useCurrentTeam, usePlayers, usePractices, useObservations, useDrills, u
 import { dueForUpdate } from '../../engine/home';
 import { storageHealth, type StorageHealth, playerName, addObservation } from '../../db/db';
 import { loadDemoData } from '../../data/demo';
-import { suggestionsForTeam } from '../../engine/suggestions';
+import { suggestionsForTeam, attentionGaps } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
 import { CATEGORY_LABEL, CATEGORIES, today, teamAgeGroup, type Category, type Observation } from '../../engine/types';
 import { Sheet, useToast } from '../components/Sheet';
@@ -32,7 +32,7 @@ export function TodayPage() {
   const live = practices.find((p) => p.status === 'live');
   const next = live ?? practices.filter((p) => p.status === 'planned').sort((a, b) => a.date.localeCompare(b.date))[0];
   const lastDone = practices.find((p) => p.status === 'done');
-  const suggestions = useMemo(() => suggestionsForTeam(players.filter((p) => p.status === 'active'), observations, drills).slice(0, 4), [players, observations, drills]);
+  const suggestions = useMemo(() => [...suggestionsForTeam(players.filter((p) => p.status === 'active'), observations, drills), ...attentionGaps(players, observations, practices)].slice(0, 4), [players, observations, drills, practices]);
   const flags = useMemo(() => (team ? [...throwingFlags(players, throwing, teamAgeGroup(team), today()).entries()].filter(([, f]) => f.status !== 'ok') : []), [team, players, throwing]);
   const updates = useParentUpdates();
   const due = useMemo(() => dueForUpdate(players, practices, updates, settings.parentUpdateEveryPractices), [players, practices, updates, settings.parentUpdateEveryPractices]);
@@ -91,8 +91,8 @@ export function TodayPage() {
                 </div>
               </div>
               <div className="col" style={{ marginTop: 10 }}>
-                <button className="btn primary big-btn" onClick={() => nav(`/practices/${next.id}/live`)}>{live ? 'Resume practice' : 'Start practice'}</button>
-                <button className="btn" onClick={() => nav(`/practices/${next.id}`)}>Open the plan</button>
+                {(live || next.date <= today()) ? <button className="btn primary big-btn" onClick={() => nav(`/practices/${next.id}/live`)}>{live ? 'Resume practice' : 'Start practice'}</button> : <button className="btn primary big-btn" onClick={() => nav(`/practices/${next.id}`)}>Open the plan</button>}
+                {(live || next.date <= today()) ? <button className="btn" onClick={() => nav(`/practices/${next.id}`)}>Open the plan</button> : <button className="btn ghost" onClick={() => nav(`/practices/${next.id}/live`)}>Start it early</button>}
               </div>
             </div>
           ) : (
@@ -120,10 +120,10 @@ export function TodayPage() {
           {suggestions.length === 0 && <div className="empty">Nothing yet. Reminders come from the quick notes you take during practices and games.</div>}
           <div className="list">
             {suggestions.map((s) => (
-              <div key={s.id} className="card suggestion" style={{ padding: 10, cursor: 'pointer' }} onClick={() => nav(`/players/${s.playerId}`)}>
+              <button key={s.id} className="card suggestion" style={{ padding: 10, cursor: 'pointer', textAlign: 'left', width: '100%', font: 'inherit', color: 'inherit' }} onClick={() => nav(`/players/${s.playerId}`)}>
                 <div className="tag">Suggestion{s.fromGame ? ' · from a game' : ''}</div>
                 <div className="small">{s.text}</div>
-              </div>
+              </button>
             ))}
           </div>
 

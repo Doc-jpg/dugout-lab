@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { useDrills, useObservations, useVariants, usePractices, usePlayers, useSettings, useTeam, useParentUpdates, timeAgo } from '../hooks';
 import { updatePlayer, addParentUpdate, playerName } from '../../db/db';
 import { homePlanFor, parentTextDraft, parentEmailDraft, scorecardFor, renderScorecardHtml, renderHomePlanHtml, smsLink, mailtoLink } from '../../engine/home';
-import { shareOrDownload } from '../../io/backup';
 import { CATEGORY_LABEL, type Player, type ParentContact } from '../../engine/types';
 import { Sheet, useToast } from '../components/Sheet';
+import { PrintSheet } from '../components/PrintSheet';
 
 /**
  * Family: who to reach, what to send, and the drafts. The app never sends anything; it opens
@@ -23,6 +23,7 @@ export function FamilyPanel({ player }: { player: Player }) {
   const [editing, setEditing] = useState(false);
   const [personal, setPersonal] = useState('');
   const [preview, setPreview] = useState<{ title: string; text: string; kind: 'text' | 'email'; subject?: string; to?: string } | null>(null);
+  const [page, setPage] = useState<{ title: string; html: string; fileName: string; kind: 'home_plan' | 'scorecard' } | null>(null);
 
   const plan = useMemo(() => homePlanFor(player, drills, observations, variants), [player, drills, observations, variants]);
   const ctx = { player, team, settings, coachName: settings.coachName, observations, practices, plan, personal: personal || undefined };
@@ -35,15 +36,16 @@ export function FamilyPanel({ player }: { player: Player }) {
   const record = (kind: 'update' | 'home_plan' | 'scorecard', channel: 'text' | 'email' | 'file' | 'copy', text: string) =>
     addParentUpdate({ playerId: player.id, kind, channel, text, drillIds: plan.drills.map((d) => d.drill.id) });
 
-  const openText = async () => {
+  // Messages and Mail open with the draft filled in; the app cannot see whether it was sent, so the log says "drafted".
+  const openText = () => {
     if (!parent?.phone) { toast.show('Add a phone number first'); return; }
-    await record('update', 'text', textDraft);
     window.location.href = smsLink(parent.phone, textDraft);
+    record('update', 'text', textDraft);
   };
-  const openEmail = async () => {
+  const openEmail = () => {
     if (!parent?.email) { toast.show('Add an email first'); return; }
-    await record('update', 'email', emailDraft.body);
     window.location.href = mailtoLink(parent.email, emailDraft.subject, emailDraft.body);
+    record('update', 'email', emailDraft.body);
   };
   const copy = async (text: string, kind: 'update' | 'home_plan') => {
     try {
@@ -51,19 +53,8 @@ export function FamilyPanel({ player }: { player: Player }) {
       await record(kind, 'copy', text);
       toast.show('Copied');
     } catch {
-      toast.show('Could not copy; long-press the preview instead');
+      toast.show('Could not copy; select the text in the preview instead');
     }
-  };
-  const shareHtml = async (html: string, name: string, kind: 'home_plan' | 'scorecard') => {
-    const bytes = new TextEncoder().encode(html);
-    await record(kind, 'file', `${name} (file)`);
-    const how = await shareOrDownload(bytes, name, 'text/html');
-    toast.show(how === 'shared' ? 'Shared' : 'Downloaded');
-  };
-  const openHtml = (html: string) => {
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
   const card = () => scorecardFor(player, teamPlayers, observations, practices, { teamName: team?.brand?.programName || team?.name, brand });
   const first = player.firstName;
@@ -90,8 +81,7 @@ export function FamilyPanel({ player }: { player: Player }) {
         {plan.mental && <div className="small" style={{ marginTop: 6 }}><strong>Mental:</strong> {plan.mental}</div>}
         <details className="small muted" style={{ marginTop: 6 }}><summary>Why these</summary><ul style={{ paddingLeft: 18 }}>{plan.basis.map((b, i) => <li key={i}>{b}</li>)}</ul></details>
         <div className="row wrap" style={{ marginTop: 8 }}>
-          <button className="btn sm" onClick={() => openHtml(renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.brand?.programName || team?.name, brand }))}>Open printable</button>
-          <button className="btn sm" onClick={() => shareHtml(renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.brand?.programName || team?.name, brand }), `${first}-home-plan.html`, 'home_plan')}>Share file</button>
+          <button className="btn" onClick={() => setPage({ title: `${first}'s yard work`, html: renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.brand?.programName || team?.name, brand }), fileName: `${first}-home-plan.html`, kind: 'home_plan' })}>Open and share the printable</button>
         </div>
       </div>
 
@@ -102,8 +92,7 @@ export function FamilyPanel({ player }: { player: Player }) {
           <div className="row wrap">
             <button className="btn primary" onClick={() => setPreview({ title: 'Text draft', text: textDraft, kind: 'text', to: parent?.phone })}>Text</button>
             <button className="btn primary" onClick={() => setPreview({ title: 'Email draft', text: emailDraft.body, kind: 'email', subject: emailDraft.subject, to: parent?.email })}>Email</button>
-            {share === 'scorecard' && <button className="btn" onClick={() => openHtml(renderScorecardHtml(card()))}>Scorecard</button>}
-            {share === 'scorecard' && <button className="btn" onClick={() => shareHtml(renderScorecardHtml(card()), `${first}-scorecard.html`, 'scorecard')}>Share scorecard</button>}
+            {share === 'scorecard' && <button className="btn" onClick={() => setPage({ title: `${first}'s scorecard`, html: renderScorecardHtml(card()), fileName: `${first}-scorecard.html`, kind: 'scorecard' })}>Scorecard</button>}
           </div>
           <p className="muted small" style={{ marginTop: 8 }}>What goes in: wins first, what we are working on, the home work. What never goes in: your private notes on how he handles frustration, raw note text, or anything about other kids. The scorecard shows the team as a band, not as names.</p>
         </div>
@@ -112,10 +101,11 @@ export function FamilyPanel({ player }: { player: Player }) {
       {updates.length > 0 && (
         <div className="card">
           <div className="section-title" style={{ marginTop: 0 }}><h3>Sent before</h3></div>
-          {updates.slice(0, 6).map((u) => <div key={u.id} className="small muted">{timeAgo(u.ts)} · {u.kind.replace('_', ' ')} by {u.channel}</div>)}
+          {updates.slice(0, 6).map((u) => <div key={u.id} className="small muted">{timeAgo(u.ts)} · {u.kind.replace('_', ' ')} {u.channel === 'text' || u.channel === 'email' ? `drafted in ${u.channel === 'text' ? 'Messages' : 'Mail'}` : u.channel === 'file' ? 'shared as a file' : 'copied'}</div>)}
         </div>
       )}
 
+      {page && <PrintSheet title={page.title} html={page.html} fileName={page.fileName} onClose={() => setPage(null)} onShared={() => record(page.kind, 'file', `${page.fileName} (file)`)} />}
       {editing && <ContactSheet player={player} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); toast.show('Saved'); }} />}
       {preview && (
         <Sheet title={preview.title} onClose={() => setPreview(null)} footer={<>

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentTeam, usePlayers, useObservations, useDrills, usePractices } from '../hooks';
 import { playerName } from '../../db/db';
 import { suggestionsForTeam } from '../../engine/suggestions';
-import { CATEGORIES, CATEGORY_LABEL, STATUS_LABEL } from '../../engine/types';
+import { CATEGORIES, CATEGORY_LABEL, STATUS_LABEL, stationCategory } from '../../engine/types';
 
 /** Team view: where everyone is by area (coach's own assessments), attendance, and suggestions. No rankings. */
 export function ProgressPage() {
@@ -46,7 +46,7 @@ export function ProgressPage() {
 
       <div className="section-title"><h3>Suggestions</h3><span className="muted small">{suggestions.length}</span></div>
       <div className="list">
-        {suggestions.map((s) => <div key={s.id} className="card suggestion" style={{ padding: 10, cursor: 'pointer' }} onClick={() => nav(`/players/${s.playerId}`)}><div className="tag">Suggestion{s.fromGame ? ' · from a game' : ''}</div><div className="small">{s.text}</div></div>)}
+        {suggestions.map((s) => <button key={s.id} className="card suggestion" style={{ padding: 10, cursor: 'pointer', textAlign: 'left', width: '100%', font: 'inherit', color: 'inherit' }} onClick={() => nav(`/players/${s.playerId}`)}><div className="tag">Suggestion{s.fromGame ? ' · from a game' : ''}</div><div className="small">{s.text}</div></button>)}
         {suggestions.length === 0 && <div className="empty">Nothing yet. Suggestions come from patterns in your notes, never from guesses.</div>}
       </div>
 
@@ -57,7 +57,7 @@ export function ProgressPage() {
 
       <div className="section-title"><h3>What the team has worked on</h3></div>
       <div className="row wrap small">
-        {CATEGORIES.map((c) => { const n = done.reduce((s, p) => s + p.blocks.reduce((t, b) => t + b.stations.filter((st) => (st.notes ?? '').startsWith(`category:${c}`)).length, 0), 0); return n ? <span key={c} className="pill">{CATEGORY_LABEL[c]} {n}</span> : null; })}
+        {CATEGORIES.map((c) => { const n = done.reduce((s, p) => s + p.blocks.reduce((t, b) => t + b.stations.filter((st) => stationCategory(st) === c).length, 0), 0); return n ? <span key={c} className="pill">{CATEGORY_LABEL[c]} {n}</span> : null; })}
         {done.length === 0 && <span className="muted">No finished practices yet.</span>}
       </div>
     </div>

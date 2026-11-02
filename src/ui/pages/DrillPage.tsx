@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDrill, useVariants, useCurrentTeam, usePlayers } from '../hooks';
 import { updateDrill, duplicateDrill, saveVariant, playerName, db } from '../../db/db';
-import { CATEGORY_LABEL, BLOCK_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, LEVEL_LABEL, type DrillVariant } from '../../engine/types';
+import { CATEGORY_LABEL, BLOCK_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, LEVEL_LABEL, STYLE_WORD, THROWING_LOAD_WORD, type DrillVariant } from '../../engine/types';
 import { DrillEditor } from '../components/DrillEditor';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 
@@ -31,7 +31,7 @@ export function DrillPage() {
         </div>
       </div>
       <h1 style={{ marginBottom: 2 }}>{d.name}</h1>
-      <div className="muted small">{CATEGORY_LABEL[d.category]}{d.also?.length ? ` (also ${d.also.map((c) => CATEGORY_LABEL[c].toLowerCase()).join(', ')})` : ''} · {LEVEL_LABEL[d.levelMin]} to {LEVEL_LABEL[d.levelMax]} · {d.minutes} min · {d.playersMin}-{d.playersMax} players · {d.coaches === 0 ? 'player-led' : `${d.coaches} coach${d.coaches > 1 ? 'es' : ''}`} · {d.style}</div>
+      <div className="muted small">{CATEGORY_LABEL[d.category]}{d.also?.length ? ` (also ${d.also.map((c) => CATEGORY_LABEL[c].toLowerCase()).join(', ')})` : ''} · {LEVEL_LABEL[d.levelMin]} to {LEVEL_LABEL[d.levelMax]} · {d.minutes} min · {d.playersMin}-{d.playersMax} players · {d.coaches === 0 ? 'player-led' : `${d.coaches} coach${d.coaches > 1 ? 'es' : ''}`} · {STYLE_WORD[d.style]}</div>
       <div className="card" style={{ marginTop: 10 }}>
         <div><strong>Goal:</strong> {d.objective}</div>
         <div className="small muted" style={{ marginTop: 4 }}><strong>Setup:</strong> {d.setup}</div>
@@ -42,8 +42,12 @@ export function DrillPage() {
         <div className="small"><strong>Harder:</strong> {d.harder}</div>
         {d.mentalHook && <div className="small" style={{ marginTop: 4 }}><strong>Mental hook:</strong> {d.mentalHook}</div>}
         {d.decisionHook && <div className="small"><strong>Decision it forces:</strong> {d.decisionHook}</div>}
+        {d.spacing && <div className="small" style={{ marginTop: 4 }}><strong>Spacing:</strong> {d.spacing}</div>}
+        {d.safety && <div className="small" style={{ marginTop: 4, color: 'var(--danger)' }}><strong>Safety:</strong> {d.safety}</div>}
+        {d.mistakes?.length ? <div className="small" style={{ marginTop: 6 }}><strong>What you will see, and the fix</strong><ul className="step-list" style={{ marginTop: 2 }}>{d.mistakes.map((m, i) => <li key={i}>{m.see} <span className="muted">Fix: {m.fix}</span></li>)}</ul></div> : null}
+        {d.competitive && <div className="small" style={{ marginTop: 4 }}><strong>Make it a game:</strong> {d.competitive}</div>}
         <div className="small muted" style={{ marginTop: 8 }}>
-          {d.blocks.map((b) => BLOCK_LABEL[b]).join(', ')} · {SPACE_LABEL[d.space]} · {d.indoorOk ? 'indoors ok' : 'outdoors only'} · throwing load {d.throwingLoad} · {d.equipment.length ? d.equipment.map((e) => EQUIPMENT_LABEL[e]).join(', ') : 'no equipment'}
+          {d.blocks.map((b) => BLOCK_LABEL[b]).join(', ')} · {SPACE_LABEL[d.space]} · {d.indoorOk ? 'indoors ok' : 'outdoors only'} · {THROWING_LOAD_WORD[d.throwingLoad]} · {d.equipment.length ? d.equipment.map((e) => EQUIPMENT_LABEL[e]).join(', ') : 'no equipment'}
         </div>
         {d.attribution && <div className="small muted" style={{ marginTop: 4 }}>Source: {d.attribution}</div>}
         {d.tags.length > 0 && <div className="small muted">Tags: {d.tags.join(', ')}</div>}
@@ -68,7 +72,7 @@ export function DrillPage() {
       </div>
 
       <div className="row" style={{ marginTop: 16 }}>
-        <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setArchive(true)}>Hide this drill</button>
+        {d.archived ? <button className="btn sm" onClick={async () => { await updateDrill(d.id, { archived: false }); toast.show('Back in the list'); }}>Unhide this drill</button> : <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setArchive(true)}>Hide this drill</button>}
       </div>
 
       {editing && <DrillEditor title="Edit drill" initial={d} onClose={() => setEditing(false)} onSave={async (next) => { await updateDrill(d.id, next); setEditing(false); toast.show('Saved'); }} />}

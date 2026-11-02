@@ -1,4 +1,5 @@
 import type { Drill } from '../engine/types';
+import { DRILL_EXTRAS } from './drills-extra';
 
 /**
  * Dugout Lab seed drill library.
@@ -10,10 +11,10 @@ import type { Drill } from '../engine/types';
  * Prose strings use double quotes so apostrophes read naturally.
  */
 
-export const LIBRARY_VERSION = 1;
+export const LIBRARY_VERSION = 2;
 
 /** Seed drills. Ids are stable strings like 'lib-hit-001' so re-seeding never duplicates. */
-export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
+const RAW_LIBRARY: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
   // -------------------------------------------------------------------------
   // HITTING
   // -------------------------------------------------------------------------
@@ -206,7 +207,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
       "Round two: all slow tosses with more arc. Hitter learns to wait with the hands.",
       "Round three: coach mixes them with no warning.",
       "Hitter calls fast or slow out loud as he swings.",
-      "Score one point for a hard ball hit to the right field, zero for a roll-over or a pop."
+      "Score one point for a hard ball hit the right way (the way the pitch tells you), zero for a roll-over or a pop."
     ],
     cues: ["See it early", "Hands stay back on the slow one", "Same swing, different wait"],
     success: "On the mixed round the hitter stays balanced and hits five of ten hard.",
@@ -285,7 +286,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     throwingLoad: 'none',
     source: 'library',
     attribution: "Common youth coaching practice for two-strike approach.",
-    tags: ['two-strike', 'bat-control', 'contact', 'compete', 'hit-and-run'],
+    tags: ['two-strike', 'bat-control', 'contact', 'compete'],
     style: 'game'
   },
   {
@@ -381,7 +382,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
       "Finish each swing in balance."
     ],
     cues: ["Load, then turn", "Belly button to the pitcher", "Hands stay back, hips go first"],
-    success: "Ball jumps off the bat with the hitter looking easy, back foot turned, head still.",
+    success: "Eight of ten swings show the back foot turned and the head still at contact.",
     easier: "Take practice turns with no ball and no bat, hands on hips, feeling the back hip fire.",
     harder: "Add a small stride step after the pause and keep the hands back through it.",
     throwingLoad: 'none',
@@ -405,7 +406,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     space: 'tight',
     indoorOk: true,
     objective: "Get the bat to the ball faster without swinging harder.",
-    setup: "Coach behind an L-screen only 10 to 12 feet away. Net close.",
+    setup: "Coach behind a full L-screen at 12 feet (15 feet for 13U and up), tosses always from behind the screen. Net close.",
     steps: [
       "Coach tosses firm and flat, no arc.",
       "Hitter keeps the swing short and gets the barrel there on time.",
@@ -439,7 +440,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     space: 'half',
     indoorOk: true,
     objective: "Keep the hands back and still hit the slow pitch hard.",
-    setup: "Pitching machine (or coach from an L-screen) that can deliver two clearly different speeds. Set at game distance for the age group.",
+    setup: "The machine version of two-speed work: a pitching machine that delivers two clearly different speeds, set at game distance for the age group (46 feet for 12U and under, 54 feet for 13U, 60 feet 6 inches for 14U and up). Use Two-Speed Timing Toss when there is no machine.",
     steps: [
       "Coach announces nothing. Machine or toss alternates randomly between fast and slow.",
       "Hitter tracks every pitch and tries to stay in his legs on the slow one.",
@@ -747,7 +748,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     space: 'full',
     indoorOk: false,
     objective: "Build arm strength safely by stretching the distance out and bringing it back in.",
-    setup: "Cones every 15 feet from 45 out to the max for the age group. Partners start at the first cone.",
+    setup: "Cones every 15 feet from 45 feet out to a cap of about 120 feet for 10U, 150 feet for 12U, 180 feet for 14U and up. Partners start at the first cone.",
     steps: [
       "Five throws at each cone, moving back one cone at a time.",
       "Throws can have an arc on the way out. The arm should feel loose, never strained.",
@@ -839,7 +840,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     category: 'throwing',
     levelMin: 1,
     levelMax: 5,
-    blocks: ['compete', 'warmup'],
+    blocks: ['compete', 'gamelike'],
     minutes: 10,
     playersMin: 2,
     playersMax: 14,
@@ -1128,7 +1129,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     objective: "Find a pop-up behind the plate, get rid of the mask, and make the catch.",
     setup: "Catcher in gear behind home plate. Coach with a fungo or a hand toss standing next to the plate.",
     steps: [
-      "Coach tosses or hits a pop-up straight up or behind the plate.",
+      "Coach hand-tosses a high pop-up straight up or behind the plate (fungo pop-ups are the harder version).",
       "Catcher stands, finds the ball, then pulls the mask off and holds it.",
       "Once the ball is found, toss the mask away from where the ball is coming down.",
       "Turn so the back is to the infield and catch above the eyes.",
@@ -1174,7 +1175,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     easier: "Coach calls the locations and the catcher only sets the target.",
     harder: "Catcher sequences the pitches and explains why to the coach between batters.",
     mentalHook: "The catcher sets the mood. Steady voice, steady glove.",
-    throwingLoad: 'light',
+    throwingLoad: 'high',
     source: 'library',
     attribution: "Common youth coaching practice.",
     tags: ['catcher', 'leadership', 'bullpen', 'communication'],
@@ -1303,7 +1304,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     objective: "Throw a counted bullpen with a plan, not just a bunch of pitches.",
     setup: "Pitcher, catcher in gear, coach with a clipboard. Pitches are counted and the number is written down.",
     steps: [
-      "Warm up with easy catch first. Bullpen starts at 25 to 30 pitches for most youth arms, never more than the Pitch Smart daily limit for the age.",
+      "One pitcher per 15 minutes (run two pairs side by side if two catchers are in gear). Warm up with easy catch first. Bullpen is 25 to 30 pitches for most youth arms, never more than the Pitch Smart daily limit for the age, and it counts as that day's throwing.",
       "First 10: fastballs to the glove, alternating sides of the plate.",
       "Next 10: simulated at-bats. Catcher calls the count, pitcher picks the pitch and location.",
       "Last 5 to 10: finish with the pitch the pitcher trusts most, to end on a good feel.",
@@ -1342,7 +1343,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
       "Each imaginary batter starts 0-0. A first-pitch strike is two points.",
       "Pitcher then needs two more strikes before four balls to finish the batter. A finished batter is three points.",
       "Ball four or a pitch the coach calls a hittable mistake ends the batter with zero.",
-      "Five batters per pitcher, counted pitches, never past the daily limit.",
+      "Three batters per pitcher, counted pitches, capped at 20 for the game; this is that day's bullpen, not an extra.",
       "Highest score wins. Compare each pitcher only with his own last score."
     ],
     cues: ["Strike one wins", "Attack the glove", "Breathe, then go"],
@@ -1692,7 +1693,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     cues: ["Hands up, come to the ball", "Touch and throw", "Get out of the runner's way"],
     success: "Six of eight turns are quick, with a clean touch and a throw a first baseman can catch.",
     easier: "No throw: catch, touch, and hold the ball.",
-    harder: "Add a sliding runner (with sliding practice done already) and a bad feed every fourth rep.",
+    harder: "Add a bad feed every fourth rep. Only after the team has done the sliding drill: add a runner who slides feet first to the back of the bag.",
     throwingLoad: 'moderate',
     source: 'library',
     attribution: "Common youth infield fundamentals.",
@@ -1717,12 +1718,12 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     setup: "Fielder at third or shortstop. Coach at home rolls slow balls. First baseman or net at first.",
     steps: [
       "Coach rolls a slow ball. Fielder charges hard from the first step.",
-      "Field it with the glove in front of the left foot, two hands if possible, bare hand only if it has stopped.",
+      "Field it with the glove out in front of the glove-side foot, two hands if possible, bare hand only if it has stopped.",
       "Throw across the body on the run, no stopping.",
       "Eight reps, then move to the next fielder.",
       "Add a runner for the last three reps."
     ],
-    cues: ["Charge now", "Field it off the left foot", "Throw on the run"],
+    cues: ["Charge now", "Field it off the glove-side foot", "Throw on the run"],
     success: "Six of eight slow rollers are fielded cleanly and the throw beats a normal runner.",
     easier: "Let the fielder stop and set before the throw.",
     harder: "Hit chopper-style rollers from a fungo and require a bare-hand pickup when the ball is stopped.",
@@ -1822,12 +1823,12 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
       "Ball kept in front of the body counts, even if it is not caught.",
       "Ten reps, then the next fielder.",
       "Score: clean catch two points, kept in front one point, through the legs zero.",
-      "Switch to real baseballs on soft dirt for older players."
+      "Tennis balls or soft balls at every age; the point is the read, not the sting."
     ],
     cues: ["Stay down", "Chest over the ball", "Block it if you cannot catch it"],
     success: "Fielder keeps nine of ten in front and catches at least five.",
     easier: "Tennis balls on a smoother surface with a slower throw.",
-    harder: "Bounce baseballs off a wall or a lip at a sharper angle with a faster throw.",
+    harder: "Faster tennis-ball throws from closer in, and the fielder must call the hop (short, long, in-between) before it arrives.",
     mentalHook: "A bad hop is nobody's fault. Keep it in front and move on.",
     throwingLoad: 'none',
     source: 'library',
@@ -1884,17 +1885,17 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     space: 'full',
     indoorOk: false,
     objective: "Field cleanly and throw accurately under a clock, as a team.",
-    setup: "Full infield with first baseman. Two coaches hitting from home. Teams of four or five.",
+    setup: "Full infield with first baseman. One coach hits from home, the other times and keeps the count. Teams of four or five.",
     steps: [
-      "Team must record 21 clean outs: fielded clean and thrown accurately to first.",
+      "Team must record 15 clean outs: fielded clean and thrown accurately to first.",
       "Coach hits around the horn, one ball to each position in order.",
       "An error or a bad throw subtracts one from the count.",
       "Coach times each team. Best time wins.",
       "Second round: add double plays that count for two."
     ],
     cues: ["Clean beats fast", "Every throw to the chest", "Pick each other up"],
-    success: "Team reaches 21 with no more than three errors.",
-    easier: "Count to 15 and do not subtract for errors.",
+    success: "Team reaches 15 with no more than three errors.",
+    easier: "Count to 10 and do not subtract for errors.",
     harder: "Mix in slow rollers and pop-ups, and require the fielder to call the base on every ball.",
     mentalHook: "One error does not sink the team. Next ball.",
     throwingLoad: 'moderate',
@@ -2092,7 +2093,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     space: 'half',
     indoorOk: false,
     objective: "Catch a fly ball behind the throwing shoulder and use the hop to throw hard and accurately.",
-    setup: "Outfielder 90 to 120 feet from a partner with a glove up as the target. Coach throws or hits the fly.",
+    setup: "Outfielder 60 feet from a partner for 8U and 9U, 90 feet for 10U to 12U, up to 120 feet for 13U and up; partner holds a glove up as the target. Coach throws or hits the fly.",
     steps: [
       "Outfielder gets behind the ball so the catch happens while moving toward the target.",
       "Catch above the throwing-side shoulder with two hands.",
@@ -2165,7 +2166,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
       "Play the ball out and throw to a partner.",
       "Coach says good read or late read after each one.",
       "Ten reps, rotating.",
-      "Last five: coach hits from a real swing with a thrown ball so the sound and angle are game-like."
+      "Last five: a player tosses to the coach, who hits from a real swing so the sound and angle are game-like."
     ],
     cues: ["Freeze on the line drive", "Read it, then go", "Ball in the air, you are already moving"],
     success: "Seven of ten first steps go the right direction with no false step in.",
@@ -2440,7 +2441,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     setup: "Runner at first with a lead. A pitcher (or coach acting as one) on the mound. Bases in place. No catcher throw at first.",
     steps: [
       "Coach shows the key: when the pitcher's front heel lifts to pitch, go. If the front foot steps toward first, back.",
-      "Pitcher goes through his motion. Runner reads and either goes or dives back.",
+      "Pitcher goes through his motion. Runner reads and either goes or gets back standing (feet first only if the team has done the sliding drill).",
       "Six reps. Coach mixes in pickoff moves.",
       "Runner's first step is a crossover, not a false step.",
       "Add a catcher throwing to second on the last three."
@@ -2613,7 +2614,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     space: 'full',
     indoorOk: false,
     objective: "Get a ball from the deep outfield to home faster with a relay than with one long throw.",
-    setup: "Two teams of three or four: an outfielder deep, a relay man, and a catcher at a base. Balls at the deep spot.",
+    setup: "Two teams of three or four: an outfielder about 150 feet from the base, a relay man halfway, and a catcher at the base. Balls at the deep spot.",
     steps: [
       "On go, the outfielder picks up the ball and throws to the relay man, who turns glove side and throws home.",
       "Relay man has his hands up and yells for the ball.",
@@ -2902,7 +2903,7 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
       "Before each hit, every fielder holds up the outs with his fingers and yells it.",
       "Coach hits. Defense makes the play that fits the outs.",
       "If anyone had the wrong number, the whole team does the rep again.",
-      "Coach quietly changes the count after some plays; players have to check the board or ask.",
+      "Coach quietly changes the count after some plays; players have to ask the catcher.",
       "Ten reps."
     ],
     cues: ["How many outs?", "Fingers up, say it", "Ask if you do not know"],
@@ -3821,3 +3822,6 @@ export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = [
     style: 'blocked'
   }
 ];
+
+/** Library drills with the coaching extras (mistakes, safety, competitive, spacing) merged in. */
+export const LIBRARY_DRILLS: Omit<Drill, 'createdAt' | 'updatedAt'>[] = RAW_LIBRARY.map((d) => ({ ...d, ...(DRILL_EXTRAS[d.id] ?? {}) }));

@@ -33,7 +33,8 @@ describe('Test A: 12 players, four with objectives, 75 minutes, no unassigned pl
     expect(rotating.length).toBeGreaterThanOrEqual(3);
     for (const b of rotating) {
       expect(b.stations.length).toBe(b.groups.length);
-      expect(b.stations.length).toBe(3); // 12 kids, 2 coaches: 3 stations, groups of 4
+      expect(b.stations.length).toBeGreaterThanOrEqual(2); // 12 kids, 2 coaches: 3 stations in skill blocks, 2 or 3 in the shorter game-like block
+      expect(b.stations.length).toBeLessThanOrEqual(3);
       expect(new Set(b.groups.flatMap((g) => g.playerIds)).size).toBe(12);
     }
     // The goals show up as objectives at matching stations

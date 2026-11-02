@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentTeam, usePlayers, useObservations } from '../hooks';
 import { createPlayer, playerName } from '../../db/db';
 import { Sheet, useToast } from '../components/Sheet';
+import { parseRoster } from '../../engine/roster';
 import { CATEGORY_LABEL, type Category } from '../../engine/types';
 
 export function PlayersPage() {
@@ -18,19 +19,16 @@ export function PlayersPage() {
 
   const addFromText = async () => {
     if (!team) return;
-    const lines = quick.split('\n').map((l) => l.trim()).filter(Boolean);
     let n = 0;
-    for (const line of lines) {
-      const m = /^#?(\d{1,2})?\s*(.*)$/.exec(line);
-      const number = m?.[1];
-      const parts = (m?.[2] ?? '').split(/\s+/).filter(Boolean);
-      if (!parts.length) continue;
-      const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0];
-      const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
-      await createPlayer({ teamId: team.id, firstName, lastName, number, ageGroup: team.ageGroup });
+    const existing = players.map((p) => `${p.firstName} ${p.lastName}`.trim().toLowerCase());
+    let dup = 0;
+    for (const r of parseRoster(quick)) {
+      if (existing.includes(`${r.firstName} ${r.lastName}`.trim().toLowerCase())) dup += 1;
+      await createPlayer({ teamId: team.id, firstName: r.firstName, lastName: r.lastName, number: r.number, ageGroup: team.ageGroup });
       n += 1;
     }
-    toast.show(`${n} player${n === 1 ? '' : 's'} added`);
+    if (dup) toast.show(`${n} added; ${dup} share a name with someone already here (kept both)`);
+    else     toast.show(`${n} player${n === 1 ? '' : 's'} added`);
     setQuick('');
     setAdd(false);
   };

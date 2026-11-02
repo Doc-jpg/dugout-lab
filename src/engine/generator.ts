@@ -17,7 +17,7 @@ import type {
   Block, BlockKind, Category, Drill, DrillVariant, Equipment, Group, Level, Observation, Player, PlayerObjective,
   Practice, PracticeInputs, Settings, Space, Station, Team, ThrowingEntry, ISODate
 } from './types';
-import { BLOCK_LABEL, CATEGORY_LABEL, ageOf, newId, nowIso, today, teamAgeGroup } from './types';
+import { BLOCK_LABEL, CATEGORY_LABEL, ageOf, newId, nowIso, today, teamAgeGroup, activeRestrictions, stationCategory } from './types';
 import { throwingFlags } from './pitchsmart';
 
 export interface GeneratorContext {
@@ -54,6 +54,13 @@ export function mulberry32(seed: number) {
 // ---------------------------------------------------------------------------
 
 const SPACE_RANK: Record<Space, number> = { tight: 0, half: 1, full: 2 };
+/** Minutes to move groups between stations; taken out of each rotating block. */
+export const TRANSITION_MIN = 1;
+/** Rotation length for a block: minutes minus transitions, split across groups, never under 4. */
+export function rotationFor(minutes: number, groups: number): number {
+  const g = Math.max(1, groups);
+  return Math.max(4, Math.floor((minutes - TRANSITION_MIN * (g - 1)) / g));
+}
 /** Equipment every team has; never a reason to exclude a drill. */
 const ALWAYS: Equipment[] = ['balls', 'gloves', 'bats', 'helmets'];
 
@@ -107,7 +114,10 @@ export function averageLevel(p: Player): number {
 export function stationCount(present: number, coaches: number): number {
   if (present <= 0) return 1;
   const byGroups = Math.ceil(present / 4);
-  return Math.max(1, Math.min(4, byGroups, Math.max(1, coaches) + 1));
+  const byCoaches = Math.max(1, coaches) + 1;
+  // Groups bigger than six stand around; a big roster gets extra player-led stations (bucket and a task).
+  const minForSixPerGroup = Math.ceil(present / 6);
+  return Math.max(1, Math.min(5, Math.max(Math.min(byGroups, byCoaches), minForSixPerGroup)));
 }
 
 /** Snake-draft players into n groups by level so groups are balanced (mixed). */
@@ -125,10 +135,13 @@ export function balancedGroups(players: Player[], n: number, category?: Category
 /** Group players with similar level together (for the focus block, so a station can run one progression). */
 export function similarGroups(players: Player[], n: number, category?: Category): Group[] {
   const sorted = [...players].sort((a, b) => (category ? playerLevel(b, category) : averageLevel(b)) - (category ? playerLevel(a, category) : averageLevel(a)) || a.lastName.localeCompare(b.lastName));
-  const size = Math.ceil(sorted.length / n);
+  // Even split: sizes differ by at most one (13 kids in 4 groups is 4, 3, 3, 3, never 4, 4, 4, 1).
   const groups: Group[] = [];
+  let start = 0;
   for (let i = 0; i < n; i++) {
-    const ids = sorted.slice(i * size, (i + 1) * size).map((p) => p.id);
+    const size = Math.floor(sorted.length / n) + (i < sorted.length % n ? 1 : 0);
+    const ids = sorted.slice(start, start + size).map((p) => p.id);
+    start += size;
     if (ids.length) groups.push({ id: newId(), name: `Group ${String.fromCharCode(65 + i)}`, playerIds: ids });
   }
   return groups;
@@ -160,10 +173,8 @@ export function categoryWeights(inputs: PracticeInputs, players: Player[], recen
   return w;
 }
 
-function categoryOfStation(s: Station, p: Practice): Category {
-  // Drills are not stored on the practice; the category is remembered in notes by the generator.
-  const m = /^category:(\w+)/.exec(s.notes ?? '');
-  return (m?.[1] as Category) ?? 'hitting';
+function categoryOfStation(s: Station, _p: Practice): Category {
+  return stationCategory(s) ?? 'hitting';
 }
 
 const BLOCK_STYLE: Record<BlockKind, Drill['style'][]> = {
@@ -183,6 +194,8 @@ export interface DrillFilter {
   levelRange: [Level, Level];
   ageGroup: Team['ageGroup'];
   anyNoThrow: boolean;
+  /** Minutes a group has at the station; a drill that needs much longer does not fit. */
+  rotationMin?: number;
 }
 
 
@@ -200,6 +213,8 @@ export function drillFits(d: Drill, f: DrillFilter): boolean {
   }
   // Level overlap with the group
   if (d.levelMax < f.levelRange[0] - 1 || d.levelMin > f.levelRange[1] + 1) return false;
+  // A drill can run in about half its listed minutes (fewer reps, same setup); longer than that does not fit the rotation.
+  if (f.rotationMin && d.minutes > f.rotationMin * 2 + 1) return false;
   if (f.anyNoThrow && d.throwingLoad === 'high') return false;
   return true;
 }
@@ -215,14 +230,25 @@ export function candidatePool(drills: Drill[], f: DrillFilter, exclude: Set<stri
     if (f.anyNoThrow && d.throwingLoad === 'high') return false;
     return true;
   };
-  let pool = drills.filter((d) => hard(d) && drillFits(d, f));
-  if (!pool.length) pool = drills.filter((d) => hard(d) && d.blocks.includes(f.kind));
-  if (!pool.length) pool = drills.filter(hard);
-  return pool;
+  // Relax soft rules one at a time: a coach can float, a group can be a little big, a drill can be cut short.
+  const stages: DrillFilter[] = [
+    f,
+    { ...f, coachAvailable: true },
+    { ...f, coachAvailable: true, groupSize: Math.max(f.groupSize, 4) },
+    { ...f, coachAvailable: true, groupSize: Math.max(f.groupSize, 4), rotationMin: undefined }
+  ];
+  for (const st of stages) {
+    const pool = drills.filter((d) => hard(d) && drillFits(d, st));
+    if (pool.length) return pool;
+  }
+  const byKind = drills.filter((d) => hard(d) && d.blocks.includes(f.kind));
+  return byKind.length ? byKind : drills.filter(hard);
 }
 
-export function scoreDrill(d: Drill, kind: BlockKind, weights: Map<Category, number>, recentDrillIds: Map<string, number>, rnd: () => number, usedCategories: Category[]): number {
+export function scoreDrill(d: Drill, kind: BlockKind, weights: Map<Category, number>, recentDrillIds: Map<string, number>, rnd: () => number, usedCategories: Category[], rotationMin?: number): number {
   let s = (weights.get(d.category) ?? 0) * 2;
+  // Prefer drills whose listed time fits the rotation; a drill that needs cutting in half scores lower.
+  if (rotationMin && d.minutes > rotationMin) s -= Math.min(4, (d.minutes - rotationMin) * 0.5);
   for (const c of d.also ?? []) s += (weights.get(c) ?? 0) * 0.5;
   const styles = BLOCK_STYLE[kind];
   const si = styles.indexOf(d.style);
@@ -250,10 +276,14 @@ export function recentDrillMap(recent: Practice[]): Map<string, number> {
 // Objectives
 // ---------------------------------------------------------------------------
 
-export function objectiveFor(p: Player, drill: Drill, variants: DrillVariant[], opts: { noThrow: boolean; progression?: Station['progression']; kind: BlockKind }): PlayerObjective {
+export function objectiveFor(p: Player, drill: Drill, variants: DrillVariant[], opts: { noThrow: boolean; progression?: Station['progression']; kind: BlockKind; date?: ISODate }): PlayerObjective {
   const variant = variants.find((v) => v.drillId === drill.id && v.playerId === p.id);
   const mentalGoal = p.goals.find((g) => g.status === 'active' && g.kind === 'mental');
-  const noThrowPrefix = opts.noThrow && drill.throwingLoad !== 'none' ? 'No throws today (arm rest): field it, flip underhand or hand it to a partner. ' : '';
+  const limits = activeRestrictions(p, opts.date ?? today()).map((r) => r.kind);
+  const cats = [drill.category, ...(drill.also ?? [])];
+  let noThrowPrefix = opts.noThrow && drill.throwingLoad !== 'none' ? 'No throws today (arm rest): field it, flip underhand or hand it to a partner. ' : '';
+  if (limits.includes('no_hitting') && cats.includes('hitting')) noThrowPrefix += 'No swinging today: tee setup, dry footwork, or feed the station. ';
+  if (limits.includes('no_running') && (cats.includes('baserunning') || cats.includes('athletic'))) noThrowPrefix += 'No running today: walk the reads and call them out loud, or run the timer. ';
   if (variant) {
     return {
       playerId: p.id,
@@ -263,7 +293,6 @@ export function objectiveFor(p: Player, drill: Drill, variants: DrillVariant[], 
       from: 'variant'
     };
   }
-  const cats = [drill.category, ...(drill.also ?? [])];
   const goal = p.goals.find((g) => g.status === 'active' && g.kind === 'technical' && cats.includes(g.category));
   if (goal) {
     return { playerId: p.id, technical: noThrowPrefix + goal.text, mental: mentalGoal?.text ?? (opts.kind === 'focus' ? drill.mentalHook : undefined), from: 'goal' };
@@ -278,16 +307,23 @@ export function objectiveFor(p: Player, drill: Drill, variants: DrillVariant[], 
 // Generate
 // ---------------------------------------------------------------------------
 
-export function generatePractice(inputs: PracticeInputs, ctx: GeneratorContext, opts: { date?: ISODate; time?: string; title?: string } = {}): Practice {
+export function generatePractice(inputsIn: PracticeInputs, ctx: GeneratorContext, opts: { date?: ISODate; time?: string; title?: string } = {}): Practice {
+  let inputs = inputsIn;
   const rnd = mulberry32(ctx.seed ?? Date.now());
   const rationale: string[] = [];
   const present = ctx.players.filter((p) => inputs.presentIds.includes(p.id));
   const flags = throwingFlags(ctx.players, ctx.throwing, teamAgeGroup(ctx.team), opts.date ?? ctx.date ?? today());
   const noThrow = new Set(inputs.noThrowingIds);
+  const date = opts.date ?? ctx.date ?? today();
   for (const p of present) {
+    if (activeRestrictions(p, date).some((r) => r.kind === 'no_throwing') && !noThrow.has(p.id)) {
+      noThrow.add(p.id);
+      rationale.push(`${p.firstName}: no-throwing restriction on file; added to today's no-throwing list.`);
+    }
     const f = flags.get(p.id);
     if (f && f.status !== 'ok' && !noThrow.has(p.id)) rationale.push(`${p.firstName}: ${f.message} (not on today's no-throwing list; add him if you are not sure).`);
   }
+  inputs = { ...inputs, noThrowingIds: [...noThrow] };
   if (noThrow.size) rationale.push(`No throwing today for ${present.filter((p) => noThrow.has(p.id)).map((p) => p.firstName).join(', ')}: high-load drills were skipped and their station objectives say so.`);
 
   const weights = categoryWeights(inputs, present, ctx.recentPractices);
@@ -298,14 +334,14 @@ export function generatePractice(inputs: PracticeInputs, ctx: GeneratorContext, 
   const blocks: Block[] = [];
   let clock = 0;
 
-  const pickDrill = (kind: BlockKind, groupSize: number, coachAvailable: boolean, levelRange: [Level, Level], usedCats: Category[], exclude: Set<string>): Drill | undefined => {
-    const filter: DrillFilter = { kind, inputs, groupSize, coachAvailable, levelRange, ageGroup: teamAgeGroup(ctx.team), anyNoThrow: noThrow.size > 0 };
+  const pickDrill = (kind: BlockKind, groupSize: number, coachAvailable: boolean, levelRange: [Level, Level], usedCats: Category[], exclude: Set<string>, rotationMin?: number): Drill | undefined => {
+    const filter: DrillFilter = { kind, inputs, groupSize, coachAvailable, levelRange, ageGroup: teamAgeGroup(ctx.team), anyNoThrow: noThrow.size > 0, rotationMin };
     const pool = candidatePool(ctx.drills, filter, exclude);
     if (!pool.length) return undefined;
     let best: Drill | undefined;
     let bestScore = -Infinity;
     for (const d of pool) {
-      const s = scoreDrill(d, kind, weights, recent, rnd, usedCats);
+      const s = scoreDrill(d, kind, weights, recent, rnd, usedCats, rotationMin);
       if (s > bestScore) {
         bestScore = s;
         best = d;
@@ -321,35 +357,43 @@ export function generatePractice(inputs: PracticeInputs, ctx: GeneratorContext, 
   };
 
   for (const b of budget) {
-    const wholeTeam = b.kind === 'warmup' || b.kind === 'compete' || b.kind === 'reflect';
+    // Stations for this block: never more than the plan allows, never so many that rotations fall under 6 minutes,
+    // but enough that no group is bigger than six.
+    const fitsSixMin = Math.max(1, Math.floor((b.minutes + TRANSITION_MIN) / (6 + TRANSITION_MIN)));
+    const byTime = Math.min(nStations, Math.max(1, Math.ceil(present.length / 3)), fitsSixMin);
+    // Skill blocks keep groups at six or fewer (reps per kid); game-like blocks can run bigger groups, they are teams.
+    const nRot = b.kind === 'gamelike' ? Math.max(byTime, Math.min(5, Math.ceil(present.length / 8))) : Math.max(Math.min(nStations, Math.ceil(present.length / 6)), byTime);
+    // A block too short to rotate (under 4 minutes per station plus switches) runs as one whole-team drill.
+    const tooShortToRotate = b.minutes < nRot * 4 + TRANSITION_MIN * (nRot - 1);
+    const wholeTeam = b.kind === 'warmup' || b.kind === 'compete' || b.kind === 'reflect' || (nRot > 1 && tooShortToRotate);
     const block: Block = { id: newId(), kind: b.kind, title: BLOCK_LABEL[b.kind], startMin: clock, minutes: b.minutes, stations: [], groups: [], rotationMin: b.minutes, wholeTeam };
     if (wholeTeam) {
       block.groups = [{ id: newId(), name: 'Everyone', playerIds: present.map((p) => p.id) }];
       const count = b.kind === 'warmup' && b.minutes >= 10 ? 2 : 1;
       const cats: Category[] = [];
       for (let i = 0; i < count; i++) {
-        const d = pickDrill(b.kind, present.length, inputs.coaches > 0, levelRangeOf(present.map((p) => p.id)), cats, usedDrills);
+        const d = pickDrill(b.kind, present.length, inputs.coaches > 0, levelRangeOf(present.map((p) => p.id)), cats, usedDrills, b.kind === 'warmup' || b.kind === 'compete' || b.kind === 'reflect' ? undefined : b.minutes);
         if (!d) continue;
         usedDrills.add(d.id);
         cats.push(d.category);
-        block.stations.push(makeStation(d, present, ctx.variants, noThrow, b.kind));
+        block.stations.push(makeStation(d, present, ctx.variants, noThrow, b.kind, date));
       }
       // Whole-team drills run one after another, not in parallel.
       block.rotationMin = block.stations.length ? Math.floor(b.minutes / block.stations.length) : b.minutes;
     } else {
-      const n = Math.min(nStations, Math.max(1, Math.ceil(present.length / 3)));
+      const n = nRot;
       block.groups = b.kind === 'focus' ? similarGroups(present, n) : balancedGroups(present, n);
-      block.rotationMin = Math.max(4, Math.floor(b.minutes / Math.max(1, block.groups.length)));
+      block.rotationMin = rotationFor(b.minutes, block.groups.length);
       const usedCats: Category[] = [];
       for (let i = 0; i < block.groups.length; i++) {
         const coachAvailable = i < inputs.coaches; // the last station may be player-led
         const groupSize = Math.max(...block.groups.map((g) => g.playerIds.length));
         const levelRange: [Level, Level] = b.kind === 'focus' ? levelRangeOf(block.groups[i].playerIds) : levelRangeOf(present.map((p) => p.id));
-        const d = pickDrill(b.kind, groupSize, coachAvailable, levelRange, usedCats, usedDrills);
+        const d = pickDrill(b.kind, groupSize, coachAvailable, levelRange, usedCats, usedDrills, block.rotationMin);
         if (!d) continue;
         usedDrills.add(d.id);
         usedCats.push(d.category);
-        const st = makeStation(d, present, ctx.variants, noThrow, b.kind);
+        const st = makeStation(d, present, ctx.variants, noThrow, b.kind, date);
         st.coach = coachAvailable ? `Coach ${i + 1}` : 'Player-led (bucket and a task)';
         block.stations.push(st);
       }
@@ -361,6 +405,9 @@ export function generatePractice(inputs: PracticeInputs, ctx: GeneratorContext, 
   const prioritiesText = inputs.teamPriorities.map((c) => CATEGORY_LABEL[c]).join(', ');
   rationale.unshift(`${present.length} players, ${inputs.coaches} coach${inputs.coaches === 1 ? '' : 'es'}, ${inputs.durationMin} minutes${inputs.indoor ? ', indoors' : ''}. Team priorities: ${prioritiesText || 'none set'}.`);
   rationale.push('Focus block groups kids by similar level so each station can run one progression; the other blocks mix levels so everyone sees everyone.');
+  const shortest = Math.min(...blocks.filter((b) => !b.wholeTeam).map((b) => b.rotationMin), 99);
+  if (shortest < 7) rationale.push(`Rotations run ${shortest} to ${Math.max(...blocks.filter((b) => !b.wholeTeam).map((b) => b.rotationMin))} minutes: cut reps, not setup. Have the next group's gear ready before the switch.`);
+  if (nStations > inputs.coaches + 1) rationale.push(`${nStations} stations for ${present.length} kids so no group is bigger than six; the extra ones are player-led (a bucket and a simple task).`);
   const recentlyAvoided = [...recent.keys()].filter((id) => !usedDrills.has(id)).length;
   if (ctx.recentPractices.length) rationale.push(`Drills from the last two practices were discouraged (not banned); ${recentlyAvoided} of them stayed out this time.`);
   if (inputs.absentIds.length) rationale.push(`Absent: ${inputs.absentIds.map((id) => ctx.players.find((p) => p.id === id)?.firstName ?? '?').join(', ')}. Their objectives roll forward to the next practice.`);
@@ -381,13 +428,13 @@ export function generatePractice(inputs: PracticeInputs, ctx: GeneratorContext, 
   };
 }
 
-function makeStation(d: Drill, present: Player[], variants: DrillVariant[], noThrow: Set<string>, kind: BlockKind): Station {
+function makeStation(d: Drill, present: Player[], variants: DrillVariant[], noThrow: Set<string>, kind: BlockKind, date?: ISODate): Station {
   return {
     id: newId(),
     drillId: d.id,
-    notes: `category:${d.category}`,
+    category: d.category,
     progression: 'base',
-    objectives: present.map((p) => objectiveFor(p, d, variants, { noThrow: noThrow.has(p.id), kind }))
+    objectives: present.map((p) => objectiveFor(p, d, variants, { noThrow: noThrow.has(p.id), kind, date }))
   };
 }
 
@@ -418,7 +465,8 @@ export function regenerateStation(practice: Practice, blockId: string, stationId
     coachAvailable,
     levelRange: [1, 5],
     ageGroup: teamAgeGroup(ctx.team),
-    anyNoThrow: noThrow.size > 0
+    anyNoThrow: noThrow.size > 0,
+    rotationMin: block.wholeTeam ? undefined : block.rotationMin
   };
   let pool = candidatePool(ctx.drills, filter, exclude);
   if (opts.category) pool = pool.filter((d) => d.category === opts.category || d.also?.includes(opts.category!)).concat(pool.filter((d) => d.category !== opts.category));
@@ -427,7 +475,7 @@ export function regenerateStation(practice: Practice, blockId: string, stationId
   let best = pool[0];
   let bestScore = -Infinity;
   for (const d of pool) {
-    const s = scoreDrill(d, block.kind, weights, recent, rnd, usedCats);
+    const s = scoreDrill(d, block.kind, weights, recent, rnd, usedCats, block.wholeTeam ? undefined : block.rotationMin);
     if (s > bestScore) {
       bestScore = s;
       best = d;
@@ -497,7 +545,9 @@ export type Adjustment =
   | { kind: 'add_player'; playerId: string }
   | { kind: 'indoor' }
   | { kind: 'equipment'; equipment: Equipment[] }
-  | { kind: 'no_throwing'; playerId: string };
+  | { kind: 'space'; space: Space }
+  | { kind: 'no_throwing'; playerId: string }
+  | { kind: 'move_player'; blockId: string; playerId: string; toGroupId: string };
 
 /**
  * One-tap adjustments. Each keeps every personalized objective it can and only
@@ -513,16 +563,23 @@ export function adjustPractice(practice: Practice, change: Adjustment, ctx: Gene
       const keep = new Set(budget.map((b) => b.kind));
       const dropped = p.blocks.filter((b) => !keep.has(b.kind)).map((b) => b.title);
       p.blocks = p.blocks.filter((b) => keep.has(b.kind));
+      // Going longer can bring back a block that a shorter plan dropped: take it from a fresh plan with the same inputs.
+      const missing = budget.filter((b) => !p.blocks.some((x) => x.kind === b.kind));
+      if (missing.length) {
+        const fresh = generatePractice({ ...p.inputs, durationMin: change.minutes }, { ...ctx, seed: (ctx.seed ?? Date.now()) + 7 }, { date: p.date });
+        const order = budget.map((b) => b.kind);
+        p.blocks = [...p.blocks, ...fresh.blocks.filter((b) => missing.some((m) => m.kind === b.kind))].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
+      }
       let clock = 0;
       for (const b of p.blocks) {
         const minutes = budget.find((x) => x.kind === b.kind)?.minutes ?? b.minutes;
         b.minutes = minutes;
         b.startMin = clock;
-        b.rotationMin = b.wholeTeam ? Math.floor(minutes / Math.max(1, b.stations.length)) : Math.max(4, Math.floor(minutes / Math.max(1, b.groups.length)));
+        b.rotationMin = b.wholeTeam ? Math.floor(minutes / Math.max(1, b.stations.length)) : rotationFor(minutes, b.groups.length);
         clock += minutes;
       }
       p.inputs.durationMin = change.minutes;
-      note(`Practice set to ${change.minutes} minutes; every station kept its drill and each player's objective${dropped.length ? `; dropped: ${dropped.join(', ')}` : ''}.`);
+      note(`Practice set to ${change.minutes} minutes; every station kept its drill and each player's objective${dropped.length ? `; dropped: ${dropped.join(', ')}` : ''}${missing.length ? `; added back: ${missing.map((m) => BLOCK_LABEL[m.kind]).join(', ')}` : ''}.`);
       break;
     }
     case 'coaches': {
@@ -535,7 +592,7 @@ export function adjustPractice(practice: Practice, change: Adjustment, ctx: Gene
           // Merge: keep the first n stations, re-split the groups among them.
           b.stations = b.stations.slice(0, n);
           b.groups = b.kind === 'focus' ? similarGroups(present, n) : balancedGroups(present, n);
-          b.rotationMin = Math.max(4, Math.floor(b.minutes / Math.max(1, b.groups.length)));
+          b.rotationMin = rotationFor(b.minutes, b.groups.length);
         }
         b.stations.forEach((s, i) => (s.coach = i < change.coaches ? `Coach ${i + 1}` : 'Player-led (bucket and a task)'));
       }
@@ -604,6 +661,31 @@ export function adjustPractice(practice: Practice, change: Adjustment, ctx: Gene
       note(`Equipment changed: ${swapped} station${swapped === 1 ? '' : 's'} swapped.`);
       break;
     }
+    case 'space': {
+      p.inputs.space = change.space;
+      let swapped = 0;
+      for (const b of p.blocks) {
+        for (const s of b.stations) {
+          const d = ctx.drills.find((x) => x.id === s.drillId);
+          if (d && SPACE_RANK[d.space] > SPACE_RANK[change.space]) {
+            p = regenerateStation(p, b.id, s.id, { ...ctx, seed: (ctx.seed ?? Date.now()) + swapped }, {});
+            swapped += 1;
+          }
+        }
+      }
+      note(`Space is now ${change.space === 'tight' ? 'small' : change.space === 'half' ? 'half a field' : 'a full field'}: ${swapped} station${swapped === 1 ? '' : 's'} swapped.`);
+      break;
+    }
+    case 'move_player': {
+      const b = p.blocks.find((x) => x.id === change.blockId);
+      if (!b) break;
+      for (const g of b.groups) g.playerIds = g.playerIds.filter((id) => id !== change.playerId);
+      const to = b.groups.find((g) => g.id === change.toGroupId);
+      if (to) to.playerIds.push(change.playerId);
+      b.groups = b.groups.filter((g) => g.playerIds.length > 0);
+      if (!b.wholeTeam && b.stations.length > b.groups.length) b.stations = b.stations.slice(0, b.groups.length);
+      break;
+    }
     case 'no_throwing': {
       if (!p.inputs.noThrowingIds.includes(change.playerId)) p.inputs.noThrowingIds = [...p.inputs.noThrowingIds, change.playerId];
       const pl = ctx.players.find((x) => x.id === change.playerId);
@@ -633,16 +715,17 @@ export function adjustPractice(practice: Practice, change: Adjustment, ctx: Gene
 }
 
 /** Everyone present must be in a group in every rotating block and have an objective at every station. */
-export function validatePractice(practice: Practice): string[] {
+export function validatePractice(practice: Practice, players: Player[] = []): string[] {
   const problems: string[] = [];
   const present = new Set(practice.inputs.presentIds);
+  const nm = (id: string) => players.find((p) => p.id === id)?.firstName ?? 'a player';
   for (const b of practice.blocks) {
     const inGroups = new Set(b.groups.flatMap((g) => g.playerIds));
-    for (const id of present) if (!inGroups.has(id)) problems.push(`${b.title}: player ${id} is not in a group`);
+    for (const id of present) if (!inGroups.has(id)) problems.push(`${b.title}: ${nm(id)} is not in a group`);
     if (!b.stations.length) problems.push(`${b.title}: no station`);
-    for (const s of b.stations) {
-      for (const id of present) if (!s.objectives.some((o) => o.playerId === id)) problems.push(`${b.title}: no objective for ${id} at station ${s.id}`);
-    }
+    b.stations.forEach((s, i) => {
+      for (const id of present) if (!s.objectives.some((o) => o.playerId === id)) problems.push(`${b.title}: no objective for ${nm(id)} at station ${i + 1}`);
+    });
     if (!b.wholeTeam && b.stations.length !== b.groups.length) problems.push(`${b.title}: ${b.stations.length} stations for ${b.groups.length} groups`);
   }
   const total = practice.blocks.reduce((s, b) => s + b.minutes, 0);
