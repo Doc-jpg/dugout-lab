@@ -1,7 +1,7 @@
 {
   "name": "dugout-lab",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.4.0",
   "type": "module",
   "description": "Dugout Lab: personalized youth baseball practice planning and player development, offline-first",
   "scripts": {

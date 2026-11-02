@@ -4,7 +4,7 @@ import { useSettings, useTeams, useCurrentTeam, usePlayers } from '../hooks';
 import { saveSettings, createTeam, updateTeam, storageHealth, requestPersistence, db, playerName, type StorageHealth } from '../../db/db';
 import { buildBackup, buildCoachPack, readBackup, restoreBackup, readDugoutDadArchive, planRosterImport, commitRosterImport, shareOrDownload, type BackupContents, type RestoreReport, type DugoutDadRoster, type RosterImportPlan } from '../../io/backup';
 import { loadDemoData, removeDemoData, DEMO_TEAM_ID } from '../../data/demo';
-import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, nowIso, teamAgeGroup, ageGroupForClass, seasonYearFor, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
+import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, nowIso, teamAgeGroup, ageGroupForClass, seasonYearFor, type AgeGroup, type Category, type Equipment, type Space, type Helper, type Team } from '../../engine/types';
 import { APP_VERSION } from '../version';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 import { BrandSheet } from '../components/BrandSheet';
@@ -24,6 +24,7 @@ export function SettingsPage() {
   const [dad, setDad] = useState<{ roster: DugoutDadRoster; plan?: RosterImportPlan; dadTeamId?: string; labTeamId?: string } | null>(null);
   const [removeDemo, setRemoveDemo] = useState(false);
   const [wipe, setWipe] = useState(false);
+  const [packSheet, setPackSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     storageHealth().then(setHealth);
@@ -35,7 +36,7 @@ export function SettingsPage() {
     }
   }, []);
 
-  const [ready, setReady] = useState<{ bytes: Uint8Array; fileName: string; records: number; kind: 'backup' | 'pack' } | null>(null);
+  const [ready, setReady] = useState<{ bytes: Uint8Array; fileName: string; records: number; kind: 'backup' | 'pack'; forName?: string } | null>(null);
   // Build first, then share on a fresh tap (iOS needs the share to start from a tap), and only stamp "last backup" when it went somewhere.
   const exportBackup = async () => {
     setBusy(true);
@@ -66,6 +67,16 @@ export function SettingsPage() {
       onFile(new Uint8Array(await f.arrayBuffer()), f.name);
     };
     input.click();
+  };
+  const sendPack = async (h: Helper) => {
+    if (!team) return;
+    setBusy(true);
+    try {
+      const { bytes, fileName } = await buildCoachPack(APP_VERSION, team.id, { helperId: h.id, name: h.name });
+      const helpers = (team.helpers ?? []).some((x) => x.id === h.id) ? team.helpers!.map((x) => (x.id === h.id ? { ...x, lastSentAt: nowIso() } : x)) : [...(team.helpers ?? []), { ...h, lastSentAt: nowIso() }];
+      await updateTeam(team.id, { helpers });
+      setReady({ bytes, fileName, records: 0, kind: 'pack', forName: h.name });
+    } finally { setBusy(false); }
   };
   const openBackup = () => pickFile('.zip,application/zip', async (bytes) => {
     try {
@@ -118,7 +129,11 @@ export function SettingsPage() {
         <div className="field"><label>Usual coaches</label><div className="chips">{[1, 2, 3, 4].map((n) => <button key={n} className={`chip sm ${settings.defaultCoaches === n ? 'on' : ''}`} onClick={() => saveSettings({ defaultCoaches: n })}>{n}</button>)}</div></div>
         <div className="field"><label>Usual space</label><div className="chips">{(['tight', 'half', 'full'] as Space[]).map((s) => <button key={s} className={`chip sm ${settings.defaultSpace === s ? 'on' : ''}`} onClick={() => saveSettings({ defaultSpace: s })}>{SPACE_LABEL[s]}</button>)}</div></div>
         <div className="field"><label>Equipment you usually have</label><div className="chips">{(Object.keys(EQUIPMENT_LABEL) as Equipment[]).map((e) => <button key={e} className={`chip sm ${settings.defaultEquipment.includes(e) ? 'on' : ''}`} onClick={() => saveSettings({ defaultEquipment: settings.defaultEquipment.includes(e) ? settings.defaultEquipment.filter((x) => x !== e) : [...settings.defaultEquipment, e] })}>{EQUIPMENT_LABEL[e]}</button>)}</div></div>
-        <div className="field"><label>Your name on parent drafts ("Coach ...")</label><TextSetting value={settings.coachName ?? ''} placeholder="Deren" onSave={(v) => saveSettings({ coachName: v || undefined })} /></div>
+        {settings.packIdentity ? (
+          <div className="field"><label>Your name on notes</label><div className="small"><strong>{settings.packIdentity.name}</strong>, set by {settings.packIdentity.from ? `${settings.packIdentity.from}'s` : 'the'} coach pack. Every note you take goes back tagged with it; nothing to type.</div></div>
+        ) : (
+          <div className="field"><label>Your name on notes and parent drafts ("Coach ...")</label><TextSetting value={settings.coachName ?? ''} placeholder="Deren" onSave={(v) => saveSettings({ coachName: v || undefined })} /></div>
+        )}
         <div className="field"><label>Suggest a parent update after</label><div className="chips">{[2, 3, 4, 6].map((n) => <button key={n} className={`chip sm ${settings.parentUpdateEveryPractices === n ? 'on' : ''}`} onClick={() => saveSettings({ parentUpdateEveryPractices: n })}>{n} practices</button>)}</div></div>
         <div className="field"><label>App name when a team has no program name</label><TextSetting value={settings.appName} placeholder="Dugout Lab" onSave={(v) => saveSettings({ appName: v || 'Dugout Lab' })} /><div className="muted small">The home-screen icon's name is set when it is added and does not change with this.</div></div>
       </div>
@@ -136,9 +151,19 @@ export function SettingsPage() {
 
       <div className="card" id="coaches">
         <div className="section-title" style={{ marginTop: 0 }}><h3>Other coaches</h3></div>
-        <p className="muted small" style={{ marginTop: 0 }}>Each coach runs the app on his own phone. Send an assistant a coach pack (roster, drills, player versions and the plan; no family contacts, no private notes). He takes notes at his station, backs up after practice, sends you the file, and you merge it here: notes add up, each one tagged with who wrote it, nothing overwritten. Put your name in "Your name on parent drafts" above so your notes carry it too.</p>
+        <p className="muted small" style={{ marginTop: 0 }}>Each coach runs the app on his own phone. Pick who you are sending to; the pack carries his name, his phone is set up as his in one tap, and every note he sends back is tagged with it. He never types anything. The pack has the roster, drills, player versions and the plan; no family contacts, no private notes.</p>
+        {team?.helpers?.length ? (
+          <div className="list" style={{ marginBottom: 8 }}>
+            {team.helpers.map((h) => (
+              <div key={h.id} className="item small">
+                <div className="grow"><div className="title">{h.name}{h.role ? <span className="muted"> · {h.role}</span> : null}</div><div className="sub">{h.lastSentAt ? `Pack sent ${new Date(h.lastSentAt).toLocaleDateString()}` : 'No pack sent yet'}{h.lastReceivedAt ? ` · notes back ${new Date(h.lastReceivedAt).toLocaleDateString()}` : ''}</div></div>
+                <button className="btn sm" disabled={busy} onClick={() => sendPack(h)}>Send a pack</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="row wrap">
-          <button className="btn" disabled={!team || busy} onClick={async () => { if (!team) return; setBusy(true); try { const { bytes, fileName } = await buildCoachPack(APP_VERSION, team.id); setReady({ bytes, fileName, records: 0, kind: 'pack' }); } finally { setBusy(false); } }}>Share a coach pack</button>
+          <button className="btn primary" disabled={!team || busy} onClick={() => setPackSheet(true)}>{team?.helpers?.length ? '+ New person' : 'Send a coach pack'}</button>
           <button className="btn" onClick={openBackup}>Merge a coach's backup</button>
         </div>
       </div>
@@ -171,18 +196,26 @@ export function SettingsPage() {
         <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setWipe(true)}>Erase everything on this device</button>
       </div>
 
+      {packSheet && team && <HelperSheet team={team} onClose={() => setPackSheet(false)} onPick={(h) => { setPackSheet(false); sendPack(h); }} />}
       {brandSheet && team && <BrandSheet team={team} onClose={() => setBrandSheet(false)} onSaved={() => { setBrandSheet(false); toast.show('Branding saved'); }} />}
       {ready && (
-        <Sheet title={ready.kind === 'backup' ? 'Backup ready' : 'Coach pack ready'} onClose={() => setReady(null)} footer={<><button className="btn" onClick={() => setReady(null)}>Cancel</button><button className="btn primary" onClick={shareReady}>{ready.kind === 'backup' ? 'Save or share it' : 'Share it'}</button></>}>
+        <Sheet title={ready.kind === 'backup' ? 'Backup ready' : ready.forName ? `Pack for ${ready.forName} is ready` : 'Coach pack ready'} onClose={() => setReady(null)} footer={<><button className="btn" onClick={() => setReady(null)}>Cancel</button><button className="btn primary" onClick={shareReady}>{ready.kind === 'backup' ? 'Save or share it' : 'Share it'}</button></>}>
           <div className="small">{ready.fileName} · {(ready.bytes.length / 1024).toFixed(0)} KB{ready.records ? ` · ${ready.records} records` : ''}</div>
-          <p className="muted small">On an iPhone this opens the share sheet: Save to Files, AirDrop, Mail, Messages. On a computer it downloads.</p>
+          {ready.forName && <p className="small">Text or AirDrop it to {ready.forName}. He opens it in Dugout Lab (Settings, Restore from a backup) and taps one button; his phone is set up as his and every note comes back tagged {ready.forName}.</p>}
+          <p className="muted small">On a phone this opens the share sheet: Save to Files, AirDrop, Mail, Messages. On a computer it downloads.</p>
         </Sheet>
       )}
       {teamSheet && <TeamSheet mode={teamSheet} team={teamSheet === 'edit' ? team : undefined} onClose={() => setTeamSheet(null)} onSaved={() => { setTeamSheet(null); toast.show('Saved'); }} />}
       {restore && (
         <Sheet title="Restore from backup" onClose={() => setRestore(null)}>
-          <div className="small">{restore.contents.manifest.coachName ? `From ${restore.contents.manifest.coachName}, ` : 'Backup from '}{new Date(restore.contents.manifest.createdAt).toLocaleString()} (app {restore.contents.manifest.appVersion}). {Object.entries(restore.contents.manifest.files).filter(([n]) => n !== 'settings.json' && n !== 'manifest.json').map(([n, f]) => `${f.records} ${n.replace('.json', '').replace('parentUpdates', 'parent updates')}`).join(', ')}.</div>
-          {!restore.report ? (
+          <div className="small">{restore.contents.manifest.recipient && restore.contents.manifest.kind !== 'coach-pack' ? `From ${restore.contents.manifest.recipient.name} (the pack you sent), ` : restore.contents.manifest.coachName ? `From ${restore.contents.manifest.coachName}, ` : 'Backup from '}{new Date(restore.contents.manifest.createdAt).toLocaleString()} (app {restore.contents.manifest.appVersion}). {Object.entries(restore.contents.manifest.files).filter(([n]) => n !== 'settings.json' && n !== 'manifest.json').map(([n, f]) => `${f.records} ${n.replace('.json', '').replace('parentUpdates', 'parent updates')}`).join(', ')}.</div>
+          {!restore.report && restore.contents.manifest.kind === 'coach-pack' && restore.contents.manifest.recipient ? (
+            <div className="col" style={{ marginTop: 12 }}>
+              <div className="banner info small">Coach pack{restore.contents.manifest.recipient.from ? ` from ${restore.contents.manifest.recipient.from}` : ''}, made for <strong>{restore.contents.manifest.recipient.name}</strong>. This phone will be set up as {restore.contents.manifest.recipient.name}'s: same team, same plan, and every note tagged with that name.</div>
+              <button className="btn primary big-btn block" onClick={async () => { const mode = teams.some((t) => t.id === restore.contents.manifest.recipient!.teamId) ? 'merge' : 'replace'; const report = await restoreBackup(restore.contents, mode); setRestore({ ...restore, report }); }}>Set up this phone as {restore.contents.manifest.recipient.name}</button>
+              {settings.packIdentity && settings.packIdentity.helperId !== restore.contents.manifest.recipient.helperId && <div className="small muted">This phone is currently set up as {settings.packIdentity.name}. Setting it up as {restore.contents.manifest.recipient.name} changes who the notes are tagged with from now on.</div>}
+            </div>
+          ) : !restore.report ? (
             <div className="col" style={{ marginTop: 12 }}>
               <button className="btn primary block" onClick={async () => { const report = await restoreBackup(restore.contents, 'merge'); setRestore({ ...restore, report }); }}>Merge into this device (safe)</button>
               <button className="btn block" onClick={async () => { if (!confirm('Replace everything on this device with the backup?')) return; const report = await restoreBackup(restore.contents, 'replace'); setRestore({ ...restore, report }); }}>Replace everything with the backup</button>
@@ -192,7 +225,7 @@ export function SettingsPage() {
             <div style={{ marginTop: 12 }}>
               <div className="banner info small">Done ({restore.report.mode}). Added: {Object.entries(restore.report.added).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(', ') || 'nothing'}. Updated: {Object.entries(restore.report.updated).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(', ') || 'nothing'}.</div>
               {restore.report.keptNewerHere.length > 0 && <div className="small muted" style={{ marginTop: 6 }}>{restore.report.keptNewerHere.length} record{restore.report.keptNewerHere.length > 1 ? 's were' : ' was'} newer on this device; lists like goals and cues were combined, nothing was thrown away.</div>}
-              {!settings.coachName && (
+              {!settings.coachName && !settings.packIdentity && (
                 <div className="field" style={{ marginTop: 10 }}><label>Your first name, so your notes carry it</label><TextSetting value="" placeholder="Aaron" onSave={(v) => saveSettings({ coachName: v || undefined })} /></div>
               )}
               <button className="btn primary block" style={{ marginTop: 10 }} onClick={() => { setRestore(null); nav('/today'); }}>Done</button>
@@ -275,4 +308,20 @@ function TextSetting({ value, placeholder, onSave }: { value: string; placeholde
   const [v, setV] = useState(value);
   useEffect(() => setV(value), [value]);
   return <input className="input" value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onBlur={() => { if (v !== value) onSave(v.trim()); }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />;
+}
+
+/** Pick who a coach pack is for: someone used before, or a new person. The name travels with the pack. */
+function HelperSheet({ team, onClose, onPick }: { team: Team; onClose: () => void; onPick: (h: Helper) => void }) {
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('');
+  const existing = team.helpers ?? [];
+  const brandNames = (team.brand?.coaches ?? []).map((c) => c.name).filter((n) => n && !existing.some((h) => h.name.toLowerCase() === n.toLowerCase()));
+  return (
+    <Sheet title="Who is this pack for?" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!name.trim()} onClick={() => onPick({ id: `h-${Date.now().toString(36)}`, name: name.trim(), role: role.trim() || undefined, createdAt: nowIso() })}>Make the pack</button></>}>
+      {existing.length > 0 && <div className="field"><label>Used before</label><div className="chips">{existing.map((h) => <button key={h.id} className="chip" onClick={() => onPick(h)}>{h.name}</button>)}</div></div>}
+      {brandNames.length > 0 && <div className="field"><label>From your coaches list</label><div className="chips">{brandNames.map((n) => <button key={n} className="chip sm" onClick={() => setName(n)}>{n}</button>)}</div></div>}
+      <div className="field"><label>New person's first name (what the notes will say)</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mark" autoFocus={existing.length === 0} /></div>
+      <div className="field"><label>Role (optional)</label><div className="chips">{['Assistant', 'Parent coach', 'Guest coach'].map((r) => <button key={r} className={`chip sm ${role === r ? 'on' : ''}`} onClick={() => setRole(role === r ? '' : r)}>{r}</button>)}</div></div>
+    </Sheet>
+  );
 }

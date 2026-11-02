@@ -176,7 +176,7 @@ describe('two coaches, one practice: notes from two phones merge without loss', 
     await createPlayer({ id: 'j', teamId: 't', firstName: 'Johnny', lastName: 'Q', responseNotes: 'private', confidenceNotes: 'private too', parents: [{ name: 'Mom', phone: '555' }] }, head);
     await head.practices.put({ id: 'plan', teamId: 't', date: '2026-11-03', status: 'planned', inputs: { teamId: 't', presentIds: ['j'], absentIds: [], durationMin: 60, coaches: 2, equipment: [], space: 'full', indoor: false, teamPriorities: [], playerPriorities: {}, noThrowingIds: [] }, blocks: [], rationale: [], createdAt: ts, updatedAt: ts });
     const { buildCoachPack } = await import('../src/io/backup');
-    const pack = await readBackup((await buildCoachPack('0.1.0', 't', head)).bytes);
+    const pack = await readBackup((await buildCoachPack('0.1.0', 't', undefined, head)).bytes);
     expect(pack.players[0].responseNotes).toBeUndefined();
     expect(pack.players[0].parents).toBeUndefined();
     expect(pack.practices.length).toBe(1);
@@ -226,7 +226,7 @@ describe('two coaches editing the same kid on different days do not erase each o
     await createTeam({ id: 't', name: 'Rattlers', ageGroup: '13U' }, head);
     await createPlayer({ id: 'j', teamId: 't', firstName: 'Johnny', lastName: 'Q', cues: ['Stay down'], responseNotes: 'private' }, head);
     // Assistant gets the pack on a fresh phone with no settings at all
-    await restoreBackup(await readBackup((await buildCoachPack('0.3.0', 't', head)).bytes), 'replace', asst);
+    await restoreBackup(await readBackup((await buildCoachPack('0.3.0', 't', undefined, head)).bytes), 'replace', asst);
     const asstSettings = await asst.settings.get('settings');
     expect(asstSettings?.teamId).toBe('t');
     expect(asstSettings?.pinHash).toBeUndefined();
@@ -244,7 +244,7 @@ describe('two coaches editing the same kid on different days do not erase each o
     expect(j?.levels.infield).toBe(3);
     expect(j?.responseNotes).toBe('private');
     // And the other direction: head coach's pack merged into the assistant's phone keeps his cue and level
-    await restoreBackup(await readBackup((await buildCoachPack('0.3.0', 't', head)).bytes), 'merge', asst);
+    await restoreBackup(await readBackup((await buildCoachPack('0.3.0', 't', undefined, head)).bytes), 'merge', asst);
     const ja = await asst.players.get('j');
     expect(ja?.goals.map((g) => g.id)).toEqual(['g1']);
     expect(ja?.cues).toContain('Glove out front');
@@ -260,5 +260,48 @@ describe('two coaches editing the same kid on different days do not erase each o
     expect(hs?.pinHash).toBe('h');
     head.close();
     asst.close();
+  });
+});
+
+describe('a pack made for a named helper locks attribution for the whole round trip', () => {
+  it('Mark never types his name; his phone is tagged Mark from the pack and every note comes back as Mark', async () => {
+    const { DEFAULT_SETTINGS } = await import('../src/engine/types');
+    const { buildCoachPack } = await import('../src/io/backup');
+    const head = new DugoutLabDB(`head3-${Math.random().toString(36).slice(2)}`);
+    const guest = new DugoutLabDB(`guest3-${Math.random().toString(36).slice(2)}`);
+    await seedLibrary(head);
+    await head.settings.put({ ...DEFAULT_SETTINGS, coachName: 'Deren' });
+    await createTeam({ id: 't', name: 'Rattlers', ageGroup: '13U', helpers: [{ id: 'h-mark', name: 'Mark', role: 'Parent coach', createdAt: ts }] }, head);
+    await createPlayer({ id: 'j', teamId: 't', firstName: 'Johnny', lastName: 'Q' }, head);
+    const pack = await buildCoachPack('0.4.0', 't', { helperId: 'h-mark', name: 'Mark' }, head);
+    expect(pack.fileName).toMatch(/for-Mark/);
+    const contents = await readBackup(pack.bytes);
+    expect(contents.manifest.kind).toBe('coach-pack');
+    expect(contents.manifest.recipient?.name).toBe('Mark');
+    expect(contents.manifest.recipient?.from).toBe('Deren');
+    // Mark restores on a phone where someone had typed a different name
+    await guest.settings.put({ ...DEFAULT_SETTINGS, coachName: 'Wrong Name' });
+    await restoreBackup(contents, 'replace', guest);
+    const gs = await guest.settings.get('settings');
+    expect(gs?.packIdentity?.name).toBe('Mark');
+    expect(gs?.coachName).toBe('Mark');
+    expect(gs?.teamId).toBe('t');
+    // His notes carry Mark without him doing anything; even if the name field were somehow changed, the return trip is still stamped Mark
+    await addObservation({ playerId: 'j', read: 'hustle', source: 'practice' }, guest);
+    expect((await guest.observations.toArray())[0].by).toBe('Mark');
+    await guest.observations.put({ id: 'o-tampered', playerId: 'j', read: 'got_it', source: 'practice', by: 'Deren', ts: nowIso(), createdAt: nowIso() } as any);
+    const back = await readBackup((await buildBackup('0.4.0', guest)).bytes);
+    expect(back.manifest.kind).toBe('backup');
+    expect(back.manifest.recipient?.helperId).toBe('h-mark');
+    await restoreBackup(back, 'merge', head);
+    const notes = await head.observations.where('playerId').equals('j').toArray();
+    expect(notes.length).toBe(2);
+    expect(notes.every((o) => o.by === 'Mark')).toBe(true);
+    // The head coach's helper list shows the return trip landed, and the head coach's own name is untouched
+    expect((await head.teams.get('t'))?.helpers?.[0].lastReceivedAt).toBeTruthy();
+    expect((await head.settings.get('settings'))?.coachName).toBe('Deren');
+    expect((await head.settings.get('settings'))?.packIdentity).toBeUndefined();
+    head.close();
+    guest.close();
   });
 });

@@ -24,8 +24,12 @@ export interface BackupManifest {
   formatVersion: number;
   appVersion: string;
   createdAt: string;
+  /** 'coach-pack' is what a head coach sends out; 'backup' is a phone's full contents (including a helper's return trip). */
+  kind?: 'backup' | 'coach-pack';
   /** Who made it (Settings, coach name), so notes that arrived without a name can be credited. */
   coachName?: string;
+  /** Coach pack: who it was made for. Backup from a pack-set phone: who that phone belongs to. Notes on the return trip are stamped with this name no matter what. */
+  recipient?: { helperId: string; name: string; teamId: string; from?: string; sentAt: string };
   files: Record<string, { sha256: string; bytes: number; records: number }>;
 }
 
@@ -58,7 +62,7 @@ export async function buildBackup(appVersion: string, database: DugoutLabDB = de
   const settings = await database.settings.get('settings');
   files['settings.json'] = json(settings ?? null);
   counts['settings.json'] = settings ? 1 : 0;
-  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), coachName: (await database.settings.get('settings'))?.coachName || undefined, files: {} };
+  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), kind: 'backup', coachName: settings?.packIdentity?.name || settings?.coachName || undefined, recipient: settings?.packIdentity, files: {} };
   for (const [name, bytes] of Object.entries(files)) manifest.files[name] = { sha256: await sha256Hex(bytes), bytes: bytes.length, records: counts[name] ?? 0 };
   files['manifest.json'] = json(manifest);
   const bytes = zipSync(files, { level: 6 });
@@ -71,9 +75,10 @@ export async function buildBackup(appVersion: string, database: DugoutLabDB = de
  * Roster (without family contacts and the head coach's private notes), drills, player versions,
  * and planned or live practices. No observations, no update history, no settings.
  */
-export async function buildCoachPack(appVersion: string, teamId: string, database: DugoutLabDB = defaultDb): Promise<{ bytes: Uint8Array; fileName: string }> {
+export async function buildCoachPack(appVersion: string, teamId: string, recipient?: { helperId: string; name: string }, database: DugoutLabDB = defaultDb): Promise<{ bytes: Uint8Array; fileName: string }> {
   const json = (v: unknown) => strToU8(JSON.stringify(v, null, 2));
   const team = await database.teams.get(teamId);
+  const sender = (await database.settings.get('settings'))?.coachName || undefined;
   const players = (await database.players.where('teamId').equals(teamId).toArray()).map((p) => ({ ...p, parents: undefined, responseNotes: undefined, confidenceNotes: undefined, selfReflection: undefined }));
   const ids = new Set(players.map((p) => p.id));
   const drills = await database.drills.toArray();
@@ -90,11 +95,13 @@ export async function buildCoachPack(appVersion: string, teamId: string, databas
     'parentUpdates.json': json([]),
     'settings.json': json(null)
   };
-  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), coachName: (await database.settings.get('settings'))?.coachName || undefined, files: {} };
+  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), kind: 'coach-pack', coachName: sender, files: {} };
+  if (recipient) manifest.recipient = { helperId: recipient.helperId, name: recipient.name, teamId, from: sender, sentAt: manifest.createdAt };
   for (const [name, bytes] of Object.entries(files)) manifest.files[name] = { sha256: await sha256Hex(bytes), bytes: bytes.length, records: name === 'settings.json' ? 0 : (JSON.parse(strFromU8(bytes)) as unknown[]).length };
   files['manifest.json'] = json(manifest);
   const stamp = manifest.createdAt.slice(0, 10);
-  return { bytes: zipSync(files, { level: 6 }), fileName: `dugout-lab-coach-pack-${(team?.shortName ?? 'team').replace(/\s+/g, '-')}-${stamp}.zip` };
+  const who = recipient ? `-for-${recipient.name.replace(/\s+/g, '-')}` : '';
+  return { bytes: zipSync(files, { level: 6 }), fileName: `dugout-lab-coach-pack-${(team?.shortName ?? 'team').replace(/\s+/g, '-')}${who}-${stamp}.zip` };
 }
 
 export async function readBackup(bytes: Uint8Array): Promise<BackupContents> {
@@ -179,7 +186,10 @@ export function mergePlayer(cur: any, incoming: any): any {
 export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'replace', database: DugoutLabDB = defaultDb): Promise<RestoreReport> {
   const report: RestoreReport = { mode, added: {}, updated: {}, unchanged: {}, keptNewerHere: [] };
   const tables = [database.teams, database.players, database.drills, database.variants, database.practices, database.observations, database.throwing, database.parentUpdates, database.settings];
-  const sender = contents.manifest.coachName;
+  const m = contents.manifest;
+  // A backup from a phone the head coach set up by pack: every note is his helper's, whatever the phone says.
+  const forcedBy = m.kind !== 'coach-pack' && m.recipient ? m.recipient.name : undefined;
+  const sender = forcedBy ?? m.coachName;
   await database.transaction('rw', tables, async () => {
     const localSettings = await database.settings.get('settings');
     if (mode === 'replace') for (const t of tables) await t.clear();
@@ -191,7 +201,7 @@ export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'r
       let unchanged = 0;
       for (let rec of incoming) {
         // A note that left a phone with no coach name set is credited to whoever sent the file.
-        if (t === 'observations' && !rec.by && sender) rec = { ...rec, by: sender };
+        if (t === 'observations' && (forcedBy || (!rec.by && sender))) rec = { ...rec, by: forcedBy ?? sender };
         const cur = mode === 'replace' ? undefined : await table.get(rec.id);
         if (!cur) {
           await table.put(rec);
@@ -200,7 +210,7 @@ export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'r
           const merged = mergePlayer(cur, rec);
           if (JSON.stringify(merged) !== JSON.stringify(cur)) { await table.put(merged); updated += 1; } else unchanged += 1;
           if (stamp(rec) < stamp(cur)) report.keptNewerHere.push({ table: t, id: rec.id, here: stamp(cur), backup: stamp(rec) });
-        } else if (stamp(rec) > stamp(cur) || (t === 'observations' && !cur.by && rec.by)) {
+        } else if (stamp(rec) > stamp(cur) || (t === 'observations' && rec.by && cur.by !== rec.by && (forcedBy || !cur.by))) {
           await table.put(rec);
           updated += 1;
         } else if (stamp(rec) < stamp(cur)) {
@@ -220,6 +230,19 @@ export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'r
       next.pinHash = localSettings?.pinHash;
       next.pinSalt = localSettings?.pinSalt;
       next.tourSeenAt = localSettings?.tourSeenAt ?? next.tourSeenAt;
+    }
+    // Restoring a coach pack made for someone: this phone is now that person's. The name is locked; notes carry it.
+    if (m.kind === 'coach-pack' && m.recipient) {
+      next.packIdentity = m.recipient;
+      next.coachName = m.recipient.name;
+      next.teamId = m.recipient.teamId;
+    }
+    // The head coach merging a helper's return trip: remember when it came back.
+    if (forcedBy && m.recipient) {
+      const team = await database.teams.get(m.recipient.teamId);
+      if (team?.helpers?.some((h) => h.id === m.recipient!.helperId)) {
+        await database.teams.update(team.id, { helpers: team.helpers.map((h) => (h.id === m.recipient!.helperId ? { ...h, lastReceivedAt: nowIso() } : h)) });
+      }
     }
     if (Object.keys(next).length) {
       const teams = await database.teams.toArray();

@@ -113,9 +113,9 @@ export function HelpPage() {
       <div className="card">
         <h2>Assistant coaches</h2>
         <ul className="step-list small">
-          <li>Settings, Other coaches, "Share a coach pack": roster, drills, player versions and the plan, with no family contacts and none of your private notes. The assistant restores it on his phone (Settings, Restore, Replace).</li>
+          <li>Settings, Other coaches, "Send a coach pack": pick who it is for, or add a new person. The pack carries his name and has the roster, drills, player versions and the plan, with no family contacts and none of your private notes. He opens it on his phone and taps "Set up this phone as Mark." Nothing to type.</li>
           <li>He runs his station from the same plan and takes quick notes on his phone. After practice he backs up and sends you the file; you tap "Merge a coach's backup". Notes add up and show who wrote them. If you both edited the same kid, goals, cues and levels are combined, not replaced. Nothing of yours is overwritten.</li>
-          <li>The app asks for his first name after the restore so his notes carry it. iPhone or Android, same app.</li>
+          <li>His notes come back tagged with the name you put on the pack, whatever his phone says. Your list shows when each pack went out and when notes came back. iPhone or Android, same app.</li>
         </ul>
       </div>
       <div className="card">

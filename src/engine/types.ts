@@ -123,8 +123,20 @@ export interface Team {
   /** Current team-wide priorities, most important first. */
   priorities: Category[];
   brand?: Brand;
+  /** People the head coach sends coach packs to. The pack carries the name; their notes come back tagged with it. */
+  helpers?: Helper[];
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
+}
+
+export interface Helper {
+  id: ID;
+  name: string;
+  /** "Assistant", "Parent coach", whatever the head coach calls him. */
+  role?: string;
+  createdAt: ISODateTime;
+  lastSentAt?: ISODateTime;
+  lastReceivedAt?: ISODateTime;
 }
 
 export type Hand = 'L' | 'R' | 'B';
@@ -516,6 +528,8 @@ export interface Settings {
   pinSalt?: string;
   /** When the coach finished or skipped the guided tour. */
   tourSeenAt?: ISODateTime;
+  /** Set when this phone was set up from a coach pack: who the head coach said this phone belongs to. Notes are tagged with it and the name cannot be edited here. */
+  packIdentity?: { helperId: ID; name: string; teamId: ID; from?: string; sentAt: ISODateTime };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
