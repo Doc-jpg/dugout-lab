@@ -54,6 +54,29 @@ export const AGE_GROUPS: AgeGroup[] = ['8U', '10U', '12U', '14U', '16U+'];
 // Team and players
 // ---------------------------------------------------------------------------
 
+/** A coach on the staff, for the roster of contacts on parent-facing pages. */
+export interface CoachContact {
+  name: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+}
+
+/** How this team's program presents itself: in the app header and on everything parents see. */
+export interface Brand {
+  /** "Performance Baseball", "Wow Factor 2032". Falls back to the team name. */
+  programName?: string;
+  tagline?: string;
+  /** Small PNG or JPEG as a data URL (resized on upload, kept under about 150 KB). */
+  logo?: string;
+  /** Hex colors picked from the logo or typed. */
+  primary?: string;
+  accent?: string;
+  coaches?: CoachContact[];
+  /** Line at the bottom of parent pages: website, league, whatever the program wants. */
+  footer?: string;
+}
+
 export interface Team {
   id: ID;
   name: string;
@@ -62,6 +85,7 @@ export interface Team {
   season?: string;
   /** Current team-wide priorities, most important first. */
   priorities: Category[];
+  brand?: Brand;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

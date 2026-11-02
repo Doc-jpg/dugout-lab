@@ -15,6 +15,8 @@ import { SettingsPage } from './pages/SettingsPage';
 import { HelpPage } from './pages/HelpPage';
 import { ParentsPage } from './pages/ParentsPage';
 import { requestPersistence, seedLibrary } from '../db/db';
+import { useCurrentTeam } from './hooks';
+import { brandCss } from '../engine/brand';
 
 const Icon = {
   today: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /><circle cx="12" cy="15.5" r="2" /></svg>,
@@ -25,10 +27,20 @@ const Icon = {
 };
 
 export function App() {
+  const team = useCurrentTeam();
   useEffect(() => {
     requestPersistence();
     seedLibrary().catch(() => undefined);
   }, []);
+  // The current team's colors restyle the whole app; no brand means the default navy.
+  useEffect(() => {
+    const root = document.documentElement;
+    const css = brandCss(team?.brand);
+    for (const k of ['--accent', '--accent-ink', '--brand-accent']) {
+      if (css[k]) root.style.setProperty(k, css[k]);
+      else root.style.removeProperty(k);
+    }
+  }, [team?.brand?.primary, team?.brand?.accent]);
   return (
     <div className="app">
       <nav className="tabbar" aria-label="Main">

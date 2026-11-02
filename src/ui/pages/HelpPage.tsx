@@ -64,6 +64,14 @@ export function HelpPage() {
         </ul>
       </div>
       <div className="card">
+        <h2>Your program's look</h2>
+        <ul className="step-list small">
+          <li>Settings, Branding: program name ("Performance Baseball"), tagline, logo, colors, coaches with contact info, a footer line.</li>
+          <li>Upload the logo, then tap it to pick colors with the eyedropper, or tap "Auto-pick from logo". The primary color restyles the app; both colors and the logo go on every scorecard and home plan, with the coaches listed at the bottom.</li>
+          <li>Branding is per team, so one phone can hold more than one program.</li>
+        </ul>
+      </div>
+      <div className="card">
         <h2>Assistant coaches</h2>
         <ul className="step-list small">
           <li>Settings, Other coaches, "Share a coach pack": roster, drills, player versions and the plan, with no family contacts and none of your private notes. The assistant restores it on his phone (Settings, Restore, Replace).</li>

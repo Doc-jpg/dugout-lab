@@ -7,6 +7,7 @@ import { loadDemoData, removeDemoData, DEMO_TEAM_ID } from '../../data/demo';
 import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, nowIso, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
 import { APP_VERSION } from '../version';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
+import { BrandSheet } from '../components/BrandSheet';
 
 export function SettingsPage() {
   const settings = useSettings();
@@ -17,6 +18,7 @@ export function SettingsPage() {
   const toast = useToast();
   const [health, setHealth] = useState<StorageHealth | null>(null);
   const [teamSheet, setTeamSheet] = useState<'new' | 'edit' | null>(null);
+  const [brandSheet, setBrandSheet] = useState(false);
   const [restore, setRestore] = useState<{ contents: BackupContents; report?: RestoreReport } | null>(null);
   const [dad, setDad] = useState<{ roster: DugoutDadRoster; plan?: RosterImportPlan; dadTeamId?: string; labTeamId?: string } | null>(null);
   const [removeDemo, setRemoveDemo] = useState(false);
@@ -92,7 +94,11 @@ export function SettingsPage() {
           <>
             <div><strong>{team.name}</strong> · {team.ageGroup}{team.season ? ` · ${team.season}` : ''} · {players.filter((p) => p.status === 'active').length} active players</div>
             <div className="small muted">Priorities: {team.priorities.length ? team.priorities.map((c) => CATEGORY_LABEL[c]).join(', ') : 'none set'}</div>
-            <button className="btn sm" style={{ marginTop: 8 }} onClick={() => setTeamSheet('edit')}>Edit team and priorities</button>
+            <div className="row wrap" style={{ marginTop: 8 }}>
+              <button className="btn sm" onClick={() => setTeamSheet('edit')}>Edit team and priorities</button>
+              <button className="btn sm" onClick={() => setBrandSheet(true)}>Branding: name, logo, colors, coaches</button>
+            </div>
+            {team.brand?.programName && <div className="small muted" style={{ marginTop: 6 }}>Shows as "{team.brand.programName}"{team.brand.coaches?.length ? ` · ${team.brand.coaches.length} coach${team.brand.coaches.length > 1 ? 'es' : ''} listed` : ''}</div>}
           </>
         ) : <div className="muted small">No team yet.</div>}
       </div>
@@ -105,7 +111,7 @@ export function SettingsPage() {
         <div className="field"><label>Equipment you usually have</label><div className="chips">{(Object.keys(EQUIPMENT_LABEL) as Equipment[]).map((e) => <button key={e} className={`chip sm ${settings.defaultEquipment.includes(e) ? 'on' : ''}`} onClick={() => saveSettings({ defaultEquipment: settings.defaultEquipment.includes(e) ? settings.defaultEquipment.filter((x) => x !== e) : [...settings.defaultEquipment, e] })}>{EQUIPMENT_LABEL[e]}</button>)}</div></div>
         <div className="field"><label>Your name on parent drafts ("Coach ...")</label><input className="input" value={settings.coachName ?? ''} onChange={(e) => saveSettings({ coachName: e.target.value || undefined })} placeholder="Deren" /></div>
         <div className="field"><label>Suggest a parent update after</label><div className="chips">{[2, 3, 4, 6].map((n) => <button key={n} className={`chip sm ${settings.parentUpdateEveryPractices === n ? 'on' : ''}`} onClick={() => saveSettings({ parentUpdateEveryPractices: n })}>{n} practices</button>)}</div></div>
-        <div className="field"><label>App name</label><input className="input" value={settings.appName} onChange={(e) => saveSettings({ appName: e.target.value || 'Dugout Lab' })} /></div>
+        <div className="field"><label>App name when a team has no program name</label><input className="input" value={settings.appName} onChange={(e) => saveSettings({ appName: e.target.value || 'Dugout Lab' })} /><div className="muted small">The home-screen icon's name is set when it is added and does not change with this.</div></div>
       </div>
 
       <div className="card" id="backup">
@@ -150,6 +156,7 @@ export function SettingsPage() {
         <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setWipe(true)}>Erase everything on this device</button>
       </div>
 
+      {brandSheet && team && <BrandSheet team={team} onClose={() => setBrandSheet(false)} onSaved={() => { setBrandSheet(false); toast.show('Branding saved'); }} />}
       {teamSheet && <TeamSheet mode={teamSheet} team={teamSheet === 'edit' ? team : undefined} onClose={() => setTeamSheet(null)} onSaved={() => { setTeamSheet(null); toast.show('Saved'); }} />}
       {restore && (
         <Sheet title="Restore from backup" onClose={() => setRestore(null)}>

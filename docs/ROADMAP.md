@@ -19,6 +19,10 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 - Parent-facing summaries delivered through a server (a link that stays current) rather than a file; never private notes. Phase 1 already drafts texts, emails, home plans and scorecards from the phone.
 - Sync between devices with conflict review.
 
+## Product and resale
+- Per-team branding is in. Next for a sellable copy: a build script that takes a brand file (name, colors, icon PNGs) and produces the PWA; a hosted landing page per program; and the sync server from Phase 3 with team invite codes so a program can hand the app to its coaches without passing files.
+- Pricing thought (not built): per program per season, with the drill library and parent pages as the value; keep the offline, no-account core free for a single coach.
+
 ## Housekeeping
 - Hero Digitals feature list could not be verified (site blocked to fetches); revisit.
 - Consider shifting a few warm-up drills from blocked to variable to balance the library's style mix.

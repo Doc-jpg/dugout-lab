@@ -8,6 +8,7 @@ import { suggestionsForTeam } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
 import { CATEGORY_LABEL, CATEGORIES, today, type Category, type Observation } from '../../engine/types';
 import { Sheet, useToast } from '../components/Sheet';
+import { programName } from '../../engine/brand';
 
 /** Today: the next practice, what to remember about kids, one tap to start. */
 export function TodayPage() {
@@ -52,7 +53,13 @@ export function TodayPage() {
   return (
     <div>
       <div className="row between" style={{ marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>{settings.appName}</h1>
+        <div className="row" style={{ gap: 10, minWidth: 0 }}>
+          {team?.brand?.logo && <img src={team.brand.logo} alt="" style={{ height: 36, width: 36, objectFit: 'contain', borderRadius: 8, background: '#fff' }} />}
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontSize: programName(team, settings).length > 14 ? 20 : undefined, lineHeight: 1.15 }}>{programName(team, settings)}</h1>
+            {team?.brand?.tagline && <div className="muted small">{team.brand.tagline}</div>}
+          </div>
+        </div>
         <div className="row">
           {!online && <span className="pill">Offline</span>}
           <Link to="/help" className="btn ghost sm">How it works</Link>

@@ -2,6 +2,16 @@
 
 Newest first.
 
+## 2026-11-02, branding (Deren: "think about it from a product standpoint")
+
+- Branding lives on the team (`Team.brand`): program name, tagline, logo (resized to 320 px, stored as a data URL), primary and accent, coaches with contacts, footer. Per team, so one install can carry several programs; the app name in Settings is only the fallback.
+- Logo colors: `paletteFromPixels` buckets pixels (skipping transparent, white-ish and gray) and `suggestPair` picks the most used plus the most different; the eyedropper samples the canvas on tap. Button color is a darkened shade when the primary is too pale for white text (`usableAsAccent`, `inkFor`).
+- The primary recolors the live app through CSS variables (`--accent`, `--accent-ink`); scorecards and home plans get a brand bar (logo, name, tagline), brand colors, and a coaches footer; email drafts sign with coach, program, and that coach's contact line.
+- White-label build: `BRAND_NAME` and `BRAND_COLOR` env vars set the installed app's name and theme color at build time (manifest, Apple title), for a reseller copy. The in-app program name still overrides on screen.
+- Limitation to remember: the home-screen icon label is fixed when the user adds it; renaming inside the app does not rename the icon. A white-label build does.
+- Tests: 37 vitest (brand helpers, branded exports and signatures); `scripts/branding.cjs` runs upload, palette, auto-pick, eyedropper, recolor and the branded scorecard in a browser.
+
+
 ## 2026-11-02, family side (Deren: "parents have no idea")
 
 - Parent communication is drafts only: the app builds the text and opens Messages (`sms:` link) or Mail (`mailto:`), or hands over a printable HTML file through the share sheet. Nothing is sent by the app, and every draft is logged (kind, channel, text) so "who is due" works.

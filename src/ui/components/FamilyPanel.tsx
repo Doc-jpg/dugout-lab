@@ -25,7 +25,8 @@ export function FamilyPanel({ player }: { player: Player }) {
   const [preview, setPreview] = useState<{ title: string; text: string; kind: 'text' | 'email'; subject?: string; to?: string } | null>(null);
 
   const plan = useMemo(() => homePlanFor(player, drills, observations, variants), [player, drills, observations, variants]);
-  const ctx = { player, team, coachName: settings.coachName, observations, practices, plan, personal: personal || undefined };
+  const ctx = { player, team, settings, coachName: settings.coachName, observations, practices, plan, personal: personal || undefined };
+  const brand = { team, settings, coachName: settings.coachName };
   const textDraft = useMemo(() => parentTextDraft(ctx), [player, observations, practices, plan, settings.coachName, personal]);
   const emailDraft = useMemo(() => parentEmailDraft(ctx), [player, observations, practices, plan, settings.coachName, personal]);
   const parent = player.parents?.[0];
@@ -64,7 +65,7 @@ export function FamilyPanel({ player }: { player: Player }) {
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
-  const card = () => scorecardFor(player, teamPlayers, observations, practices, { teamName: team?.name });
+  const card = () => scorecardFor(player, teamPlayers, observations, practices, { teamName: team?.brand?.programName || team?.name, brand });
   const first = player.firstName;
 
   return (
@@ -89,8 +90,8 @@ export function FamilyPanel({ player }: { player: Player }) {
         {plan.mental && <div className="small" style={{ marginTop: 6 }}><strong>Mental:</strong> {plan.mental}</div>}
         <details className="small muted" style={{ marginTop: 6 }}><summary>Why these</summary><ul style={{ paddingLeft: 18 }}>{plan.basis.map((b, i) => <li key={i}>{b}</li>)}</ul></details>
         <div className="row wrap" style={{ marginTop: 8 }}>
-          <button className="btn sm" onClick={() => openHtml(renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.name }))}>Open printable</button>
-          <button className="btn sm" onClick={() => shareHtml(renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.name }), `${first}-home-plan.html`, 'home_plan')}>Share file</button>
+          <button className="btn sm" onClick={() => openHtml(renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.brand?.programName || team?.name, brand }))}>Open printable</button>
+          <button className="btn sm" onClick={() => shareHtml(renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.brand?.programName || team?.name, brand }), `${first}-home-plan.html`, 'home_plan')}>Share file</button>
         </div>
       </div>
 
