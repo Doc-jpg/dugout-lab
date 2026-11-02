@@ -2,7 +2,32 @@ import { describe, it, expect } from 'vitest';
 import { paletteFromPixels, suggestPair, inkFor, usableAsAccent, contrastRatio, programName, brandCss, hexToRgb } from '../src/engine/brand';
 import { renderScorecardHtml, scorecardFor, parentEmailDraft, homePlanFor, renderHomePlanHtml } from '../src/engine/home';
 import { LIBRARY_DRILLS } from '../src/data/drills';
-import { nowIso, DEFAULT_SETTINGS, type Drill, type Player, type Team } from '../src/engine/types';
+import { nowIso, DEFAULT_SETTINGS, ageOf, AGE_GROUPS, seasonYearFor, ageGroupForClass, teamAgeGroup, type Drill, type Player, type Team } from '../src/engine/types';
+
+describe('age groups', () => {
+  it('runs one per year from 6U to 18U plus HS, and old values still parse', () => {
+    expect(AGE_GROUPS[0]).toBe('6U');
+    expect(AGE_GROUPS).toContain('13U');
+    expect(AGE_GROUPS[AGE_GROUPS.length - 1]).toBe('HS');
+    expect(ageOf('13U')).toBe(13);
+    expect(ageOf('HS')).toBe(16);
+    expect(ageOf('16U+')).toBe(16);
+    expect(ageOf(undefined)).toBe(12);
+  });
+  it('graduation year moves the team up each season, fall counting toward the coming spring', () => {
+    expect(seasonYearFor(new Date('2026-11-02T12:00:00'))).toBe(2027);
+    expect(seasonYearFor(new Date('2027-04-15T12:00:00'))).toBe(2027);
+    expect(seasonYearFor(new Date('2027-08-01T12:00:00'))).toBe(2028);
+    expect(ageGroupForClass(2032, 2027)).toBe('13U');
+    expect(ageGroupForClass(2032, 2028)).toBe('14U');
+    expect(ageGroupForClass(2027, 2027)).toBe('18U');
+    expect(ageGroupForClass(2040, 2027)).toBe('6U');
+    const t = { ageGroup: '10U' as const, gradYear: 2032 };
+    expect(teamAgeGroup(t, new Date('2026-11-02T12:00:00'))).toBe('13U');
+    expect(teamAgeGroup(t, new Date('2027-09-01T12:00:00'))).toBe('14U');
+    expect(teamAgeGroup({ ageGroup: '10U' as const }, new Date('2026-11-02T12:00:00'))).toBe('10U');
+  });
+});
 
 const ts = nowIso();
 function pixels(colors: Array<[number, number, number, number, number]>): number[] {

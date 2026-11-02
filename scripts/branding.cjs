@@ -18,7 +18,7 @@ function expect(label, got, want) { if (JSON.stringify(got) !== JSON.stringify(w
   // Rebrand: new name, upload a logo, auto-pick colors
   await page.goto(URL + '#/settings'); await page.waitForSelector('text=Branding');
   await page.click('role=button[name=/Branding: name/]'); await page.waitForSelector('.sheet');
-  await page.fill('.sheet input[placeholder="Dirtbags 12U DEMO (fictional)"]', 'Wow Factor 2032');
+  await page.fill('.sheet input[placeholder="Dirtbags DEMO (fictional)"]', 'Wow Factor 2032');
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('role=button[name="Replace logo"]')]);
   await chooser.setFiles(path.join(__dirname, 'shots', 'test-logo.png'));
   await page.waitForTimeout(600);

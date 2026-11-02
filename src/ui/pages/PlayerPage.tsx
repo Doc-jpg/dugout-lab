@@ -5,7 +5,7 @@ import { updatePlayer, addGoal, addObservation, addThrowing, playerName, db } fr
 import { suggestionsFor } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
 import {
-  CATEGORIES, CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, APPROACH_LABEL, POSITIONS, AGE_GROUPS, today,
+  CATEGORIES, CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, APPROACH_LABEL, POSITIONS, AGE_GROUPS, today, teamAgeGroup,
   type Category, type Level, type SkillStatus, type CoachingApproach, type Player, type Hand, type Position, type Goal
 } from '../../engine/types';
 import { READ_LABEL } from './LivePracticePage';
@@ -41,7 +41,7 @@ export function PlayerPage() {
   const lastObjectives = lastPractice ? lastPractice.blocks.flatMap((b) => b.stations.map((s) => ({ drill: drills.find((d) => d.id === s.drillId)?.name, o: s.objectives.find((o) => o.playerId === p.id) }))).filter((x) => x.o) : [];
   const worked = [...observations.filter((o) => o.read === 'got_it' || o.read === 'reset_worked' || o.read === 'confident')].slice(0, 3);
   const helpedVariants = variants.filter((v) => v.helped === 'yes');
-  const flag = team ? throwingFlags([p], throwing, team.ageGroup, today()).get(p.id) : undefined;
+  const flag = team ? throwingFlags([p], throwing, teamAgeGroup(team), today()).get(p.id) : undefined;
   const activeGoals = p.goals.filter((g) => g.status === 'active');
   const attendance = practices.filter((x) => x.status === 'done');
   const attended = attendance.filter((x) => x.inputs.presentIds.includes(p.id)).length;

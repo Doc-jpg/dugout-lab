@@ -6,7 +6,7 @@ import { storageHealth, type StorageHealth, playerName, addObservation } from '.
 import { loadDemoData } from '../../data/demo';
 import { suggestionsForTeam } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
-import { CATEGORY_LABEL, CATEGORIES, today, type Category, type Observation } from '../../engine/types';
+import { CATEGORY_LABEL, CATEGORIES, today, teamAgeGroup, type Category, type Observation } from '../../engine/types';
 import { Sheet, useToast } from '../components/Sheet';
 import { programName } from '../../engine/brand';
 
@@ -33,7 +33,7 @@ export function TodayPage() {
   const next = live ?? practices.filter((p) => p.status === 'planned').sort((a, b) => a.date.localeCompare(b.date))[0];
   const lastDone = practices.find((p) => p.status === 'done');
   const suggestions = useMemo(() => suggestionsForTeam(players.filter((p) => p.status === 'active'), observations, drills).slice(0, 4), [players, observations, drills]);
-  const flags = useMemo(() => (team ? [...throwingFlags(players, throwing, team.ageGroup, today()).entries()].filter(([, f]) => f.status !== 'ok') : []), [team, players, throwing]);
+  const flags = useMemo(() => (team ? [...throwingFlags(players, throwing, teamAgeGroup(team), today()).entries()].filter(([, f]) => f.status !== 'ok') : []), [team, players, throwing]);
   const updates = useParentUpdates();
   const due = useMemo(() => dueForUpdate(players, practices, updates, settings.parentUpdateEveryPractices), [players, practices, updates, settings.parentUpdateEveryPractices]);
   const doneSinceBackup = practices.filter((p) => p.status === 'done' && (!settings.lastBackupAt || p.updatedAt > settings.lastBackupAt)).length;

@@ -46,9 +46,41 @@ export const STATUS_LABEL: Record<SkillStatus, string> = {
   introduced: 'Introduced', practicing: 'Practicing', reliable: 'Reliable in practice', transferred: 'Shows up in games', review: 'Due for review'
 };
 
-/** Age bands used by the drill library and the practice generator. */
-export type AgeGroup = '8U' | '10U' | '12U' | '14U' | '16U+';
-export const AGE_GROUPS: AgeGroup[] = ['8U', '10U', '12U', '14U', '16U+'];
+/**
+ * Age groups the way travel ball names them: one per year from 6U to 18U, plus HS for a school
+ * team that spans ages. Pitch Smart brackets and drill age gates derive from the number.
+ */
+export type AgeGroup = '6U' | '7U' | '8U' | '9U' | '10U' | '11U' | '12U' | '13U' | '14U' | '15U' | '16U' | '17U' | '18U' | 'HS';
+export const AGE_GROUPS: AgeGroup[] = ['6U', '7U', '8U', '9U', '10U', '11U', '12U', '13U', '14U', '15U', '16U', '17U', '18U', 'HS'];
+/** The age a group stands for: the number in it, 16 for HS. Old saved values like "16U+" still parse. */
+export function ageOf(g: AgeGroup | string | undefined): number {
+  if (!g) return 12;
+  if (g === 'HS') return 16;
+  const n = parseInt(String(g), 10);
+  return Number.isFinite(n) ? n : 12;
+}
+
+/**
+ * The season year a date belongs to: August onward is fall ball, which plays at next spring's
+ * age (a 12U fall team is "13U for 2027"). January to July is the current year.
+ */
+export function seasonYearFor(date: Date = new Date()): number {
+  return date.getMonth() >= 7 ? date.getFullYear() + 1 : date.getFullYear();
+}
+
+/** Age group for a high-school graduation year in a given season year: a senior is 18U. */
+export function ageGroupForClass(gradYear: number, seasonYear: number = seasonYearFor()): AgeGroup {
+  const age = 18 - (gradYear - seasonYear);
+  if (age >= 18) return '18U';
+  if (age <= 6) return '6U';
+  return `${age}U` as AgeGroup;
+}
+
+/** The age group a team plays at today: computed from its graduation year when it has one, else the fixed value. */
+export function teamAgeGroup(team: { ageGroup: AgeGroup; gradYear?: number } | undefined, date: Date = new Date()): AgeGroup {
+  if (!team) return '12U';
+  return team.gradYear ? ageGroupForClass(team.gradYear, seasonYearFor(date)) : team.ageGroup;
+}
 
 // ---------------------------------------------------------------------------
 // Team and players
@@ -81,7 +113,10 @@ export interface Team {
   id: ID;
   name: string;
   shortName?: string;
+  /** Fixed age group, used when there is no graduation year. */
   ageGroup: AgeGroup;
+  /** High-school graduation year ("Class of 2032"). When set, the age group follows the calendar. */
+  gradYear?: number;
   season?: string;
   /** Current team-wide priorities, most important first. */
   priorities: Category[];

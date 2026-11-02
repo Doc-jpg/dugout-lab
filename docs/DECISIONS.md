@@ -2,6 +2,13 @@
 
 Newest first.
 
+## 2026-11-02, age groups (Deren: "why only even numbers?")
+
+- Age groups are 6U to 18U one per year, plus HS. Pitch Smart brackets and drill age gates derive from the number (`ageOf`); old "16U+" values still parse.
+- A team can carry a graduation year ("Class of 2032"). `teamAgeGroup` computes the age group for the season: `18 - (gradYear - seasonYear)`, with `seasonYearFor` treating August onward as the coming spring's season (fall ball plays up). The team moves up on its own every year. Fixed age group remains for school teams and one-offs.
+- Pitch Smart has no 6U row; 6U uses the 7-8 row.
+
+
 ## 2026-11-02, branding (Deren: "think about it from a product standpoint")
 
 - Branding lives on the team (`Team.brand`): program name, tagline, logo (resized to 320 px, stored as a data URL), primary and accent, coaches with contacts, footer. Per team, so one install can carry several programs; the app name in Settings is only the fallback.

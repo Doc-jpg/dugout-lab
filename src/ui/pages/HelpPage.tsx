@@ -64,6 +64,10 @@ export function HelpPage() {
         </ul>
       </div>
       <div className="card">
+        <h2>Age groups</h2>
+        <p className="small">Teams run 6U through 18U, one per year, plus HS. Give a team its graduation year ("Class of 2032") and the age group follows the calendar: 13U this season, 14U next, with fall ball counting toward the coming spring. Pitch Smart limits and drill age gates follow the number. A school team or a one-off can use a fixed age group instead.</p>
+      </div>
+      <div className="card">
         <h2>Your program's look</h2>
         <ul className="step-list small">
           <li>Settings, Branding: program name ("Performance Baseball"), tagline, logo, colors, coaches with contact info, a footer line.</li>

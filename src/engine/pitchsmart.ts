@@ -6,6 +6,7 @@
  * Source: https://www.mlb.com/pitch-smart/pitching-guidelines (see docs/RESEARCH.md).
  */
 import type { AgeGroup, Player, ThrowingEntry, ISODate } from './types';
+import { ageOf } from './types';
 
 export interface PitchSmartRow {
   ageMin: number;
@@ -26,11 +27,12 @@ export const PITCH_SMART: PitchSmartRow[] = [
 ];
 
 export function ageForGroup(g: AgeGroup): number {
-  return { '8U': 8, '10U': 10, '12U': 12, '14U': 14, '16U+': 16 }[g];
+  return ageOf(g);
 }
 
 export function pitchSmartRow(age: number): PitchSmartRow {
-  return PITCH_SMART.find((r) => age >= r.ageMin && age <= r.ageMax) ?? PITCH_SMART[PITCH_SMART.length - 1];
+  // Pitch Smart starts at 7; a 6U team uses the 7-8 row (the most conservative one).
+  return PITCH_SMART.find((r) => age >= r.ageMin && age <= r.ageMax) ?? (age < 7 ? PITCH_SMART[0] : PITCH_SMART[PITCH_SMART.length - 1]);
 }
 
 /** Required rest days after `pitches` in one day. */

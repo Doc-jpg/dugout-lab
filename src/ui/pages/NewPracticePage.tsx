@@ -4,7 +4,7 @@ import { useCurrentTeam, usePlayers, useGeneratorContext, useSettings, useThrowi
 import { savePractice, playerName } from '../../db/db';
 import { generatePractice, validatePractice } from '../../engine/generator';
 import { throwingFlags } from '../../engine/pitchsmart';
-import { CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, today, type Category, type Equipment, type Space, type PracticeInputs } from '../../engine/types';
+import { CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, today, teamAgeGroup, type Category, type Equipment, type Space, type PracticeInputs } from '../../engine/types';
 import { useToast } from '../components/Sheet';
 
 /** The inputs a volunteer coach actually has: who showed up, how long, how many helpers, what gear, where. */
@@ -41,7 +41,7 @@ export function NewPracticePage() {
     if (team) setPriorities(team.priorities);
   }, [team]);
 
-  const flags = useMemo(() => (team ? throwingFlags(active, throwing, team.ageGroup, date) : new Map()), [team, active, throwing, date]);
+  const flags = useMemo(() => (team ? throwingFlags(active, throwing, teamAgeGroup(team), date) : new Map()), [team, active, throwing, date]);
   // Anyone Pitch Smart flags (rest or unknown) starts on the no-throwing list; the coach can take him off.
   useEffect(() => {
     const next = new Set<string>();

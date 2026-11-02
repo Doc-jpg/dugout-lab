@@ -57,6 +57,9 @@ describe('Pitch Smart', () => {
     expect(restDaysFor(85, 14)).toBe(4);
     expect(restDaysFor(30, 16)).toBe(0);
     expect(restDaysFor(31, 16)).toBe(1);
+    expect(restDaysFor(36, 13)).toBe(2);
+    expect(restDaysFor(51, 6)).toBe(3); // 6U uses the 7-8 row
+    expect(restDaysFor(66, 6)).toBe(3); // and never needs the fourth threshold
   });
   it('flags rest, unknown counts, and other-team players with nothing logged', () => {
     const p2: Player = { ...base, id: 'k', otherTeams: 'School' };

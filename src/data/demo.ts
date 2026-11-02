@@ -30,7 +30,9 @@ export async function loadDemoData(): Promise<{ teamId: string; practiceId: stri
   const existing = await db.teams.get(DEMO_TEAM_ID);
   if (!existing) {
     const logo = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" rx="24" fill="#8a3b12"/><circle cx="60" cy="60" r="34" fill="#f2c14e"/><path d="M38 60h44M60 38v44" stroke="#8a3b12" stroke-width="8" stroke-linecap="round"/></svg>');
-    await createTeam({ id: DEMO_TEAM_ID, name: `Dirtbags 12U ${DEMO_TAG}`, shortName: 'Dirtbags', ageGroup: '12U', season: 'Demo', priorities: ['infield', 'hitting', 'baseball_iq'],
+    const { ageGroupForClass, seasonYearFor } = await import('../engine/types');
+    const gradYear = seasonYearFor() + 6; // 12U this season, moves up each year
+    await createTeam({ id: DEMO_TEAM_ID, name: `Dirtbags ${DEMO_TAG}`, shortName: 'Dirtbags', ageGroup: ageGroupForClass(gradYear), gradYear, season: 'Demo', priorities: ['infield', 'hitting', 'baseball_iq'],
       brand: { programName: `Dirtbags Baseball ${DEMO_TAG}`, tagline: 'Every kid gets better here', logo, primary: '#8a3b12', accent: '#f2c14e', coaches: [{ name: 'Coach Demo', role: 'Head coach', phone: '555-0100', email: 'coach@example.com' }, { name: 'Coach Assistant', role: 'Assistant' }], footer: 'dirtbagsbaseball.example.com' } });
   }
   for (const r of ROSTER) {

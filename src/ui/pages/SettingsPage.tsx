@@ -4,7 +4,7 @@ import { useSettings, useTeams, useCurrentTeam, usePlayers } from '../hooks';
 import { saveSettings, createTeam, updateTeam, storageHealth, requestPersistence, db, playerName, type StorageHealth } from '../../db/db';
 import { buildBackup, buildCoachPack, readBackup, restoreBackup, readDugoutDadArchive, planRosterImport, commitRosterImport, shareOrDownload, type BackupContents, type RestoreReport, type DugoutDadRoster, type RosterImportPlan } from '../../io/backup';
 import { loadDemoData, removeDemoData, DEMO_TEAM_ID } from '../../data/demo';
-import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, nowIso, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
+import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, nowIso, teamAgeGroup, ageGroupForClass, seasonYearFor, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
 import { APP_VERSION } from '../version';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 import { BrandSheet } from '../components/BrandSheet';
@@ -92,7 +92,7 @@ export function SettingsPage() {
         )}
         {team ? (
           <>
-            <div><strong>{team.name}</strong> · {team.ageGroup}{team.season ? ` · ${team.season}` : ''} · {players.filter((p) => p.status === 'active').length} active players</div>
+            <div><strong>{team.name}</strong> · {teamAgeGroup(team)}{team.gradYear ? ` (Class of ${team.gradYear})` : ''}{team.season ? ` · ${team.season}` : ''} · {players.filter((p) => p.status === 'active').length} active players</div>
             <div className="small muted">Priorities: {team.priorities.length ? team.priorities.map((c) => CATEGORY_LABEL[c]).join(', ') : 'none set'}</div>
             <div className="row wrap" style={{ marginTop: 8 }}>
               <button className="btn sm" onClick={() => setTeamSheet('edit')}>Edit team and priorities</button>
@@ -205,17 +205,24 @@ function TeamSheet({ mode, team, onClose, onSaved }: { mode: 'new' | 'edit'; tea
   const [name, setName] = useState(team?.name ?? '');
   const [shortName, setShortName] = useState(team?.shortName ?? '');
   const [ageGroup, setAgeGroup] = useState<AgeGroup>(team?.ageGroup ?? '12U');
+  const [gradYear, setGradYear] = useState<number | undefined>(team?.gradYear);
+  const seasonYear = seasonYearFor();
+  const classYears = Array.from({ length: 13 }, (_, i) => seasonYear + i); // 18U this season down to 6U
   const [season, setSeason] = useState(team?.season ?? '');
   const [priorities, setPriorities] = useState<Category[]>(team?.priorities ?? []);
   const toggle = (c: Category) => setPriorities(priorities.includes(c) ? priorities.filter((x) => x !== c) : [...priorities, c].slice(0, 4));
   return (
-    <Sheet title={mode === 'new' ? 'New team' : 'Edit team'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!name.trim()} onClick={async () => { if (mode === 'new') { const t = await createTeam({ name: name.trim(), shortName: shortName || undefined, ageGroup, season: season || undefined, priorities }); await saveSettings({ teamId: t.id }); } else if (team) await updateTeam(team.id, { name: name.trim(), shortName: shortName || undefined, ageGroup, season: season || undefined, priorities }); onSaved(); }}>Save</button></>}>
+    <Sheet title={mode === 'new' ? 'New team' : 'Edit team'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!name.trim()} onClick={async () => { const ag = gradYear ? ageGroupForClass(gradYear) : ageGroup; if (mode === 'new') { const t = await createTeam({ name: name.trim(), shortName: shortName || undefined, ageGroup: ag, gradYear, season: season || undefined, priorities }); await saveSettings({ teamId: t.id }); } else if (team) await updateTeam(team.id, { name: name.trim(), shortName: shortName || undefined, ageGroup: ag, gradYear, season: season || undefined, priorities }); onSaved(); }}>Save</button></>}>
       <div className="field"><label>Team name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Rattlers 13U" /></div>
       <div className="inline-fields">
         <div className="field"><label>Short name</label><input className="input" value={shortName} onChange={(e) => setShortName(e.target.value)} /></div>
         <div className="field"><label>Season</label><input className="input" value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Spring 2027" /></div>
       </div>
-      <div className="field"><label>Age group</label><div className="chips">{AGE_GROUPS.map((a) => <button key={a} className={`chip sm ${ageGroup === a ? 'on' : ''}`} onClick={() => setAgeGroup(a)}>{a}</button>)}</div></div>
+      <div className="field"><label>Graduation year (the age group then follows the calendar)</label>
+        <div className="chips">{classYears.map((y) => <button key={y} className={`chip sm ${gradYear === y ? 'on' : ''}`} onClick={() => setGradYear(gradYear === y ? undefined : y)}>Class of {y}<span className="muted"> · {ageGroupForClass(y)}</span></button>)}</div>
+        {gradYear ? <div className="muted small">Plays as {ageGroupForClass(gradYear)} for the {seasonYear} season; fall ball counts toward the coming spring. Next year it moves up on its own.</div> : <div className="muted small">Or pick a fixed age group below (school team, one-off tournament team).</div>}
+      </div>
+      {!gradYear && <div className="field"><label>Fixed age group</label><div className="chips">{AGE_GROUPS.map((a) => <button key={a} className={`chip sm ${ageGroup === a ? 'on' : ''}`} onClick={() => setAgeGroup(a)}>{a}</button>)}</div></div>}
       <div className="field"><label>Team priorities, in order (up to four)</label><div className="chips">{CATEGORIES.map((c) => { const i = priorities.indexOf(c); return <button key={c} className={`chip sm ${i >= 0 ? 'on' : ''}`} onClick={() => toggle(c)}>{i >= 0 ? `${i + 1}. ` : ''}{CATEGORY_LABEL[c]}</button>; })}</div></div>
     </Sheet>
   );

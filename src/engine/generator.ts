@@ -17,7 +17,7 @@ import type {
   Block, BlockKind, Category, Drill, DrillVariant, Equipment, Group, Level, Observation, Player, PlayerObjective,
   Practice, PracticeInputs, Settings, Space, Station, Team, ThrowingEntry, ISODate
 } from './types';
-import { BLOCK_LABEL, CATEGORY_LABEL, newId, nowIso, today } from './types';
+import { BLOCK_LABEL, CATEGORY_LABEL, ageOf, newId, nowIso, today, teamAgeGroup } from './types';
 import { throwingFlags } from './pitchsmart';
 
 export interface GeneratorContext {
@@ -185,14 +185,13 @@ export interface DrillFilter {
   anyNoThrow: boolean;
 }
 
-const AGE_RANK: Record<Team['ageGroup'], number> = { '8U': 0, '10U': 1, '12U': 2, '14U': 3, '16U+': 4 };
 
 export function drillFits(d: Drill, f: DrillFilter): boolean {
   if (d.archived) return false;
   if (!d.blocks.includes(f.kind)) return false;
   if (f.inputs.indoor && !d.indoorOk) return false;
   if (SPACE_RANK[d.space] > SPACE_RANK[f.inputs.space]) return false;
-  if (d.ageMin && AGE_RANK[d.ageMin] > AGE_RANK[f.ageGroup]) return false;
+  if (d.ageMin && ageOf(d.ageMin) > ageOf(f.ageGroup)) return false;
   const have = new Set<Equipment>([...ALWAYS, ...f.inputs.equipment]);
   for (const e of d.equipment) if (!have.has(e)) return false;
   if (d.coaches >= 1 && !f.coachAvailable && f.kind !== 'warmup' && f.kind !== 'compete' && f.kind !== 'reflect') return false;
@@ -283,7 +282,7 @@ export function generatePractice(inputs: PracticeInputs, ctx: GeneratorContext, 
   const rnd = mulberry32(ctx.seed ?? Date.now());
   const rationale: string[] = [];
   const present = ctx.players.filter((p) => inputs.presentIds.includes(p.id));
-  const flags = throwingFlags(ctx.players, ctx.throwing, ctx.team.ageGroup, opts.date ?? ctx.date ?? today());
+  const flags = throwingFlags(ctx.players, ctx.throwing, teamAgeGroup(ctx.team), opts.date ?? ctx.date ?? today());
   const noThrow = new Set(inputs.noThrowingIds);
   for (const p of present) {
     const f = flags.get(p.id);
@@ -300,7 +299,7 @@ export function generatePractice(inputs: PracticeInputs, ctx: GeneratorContext, 
   let clock = 0;
 
   const pickDrill = (kind: BlockKind, groupSize: number, coachAvailable: boolean, levelRange: [Level, Level], usedCats: Category[], exclude: Set<string>): Drill | undefined => {
-    const filter: DrillFilter = { kind, inputs, groupSize, coachAvailable, levelRange, ageGroup: ctx.team.ageGroup, anyNoThrow: noThrow.size > 0 };
+    const filter: DrillFilter = { kind, inputs, groupSize, coachAvailable, levelRange, ageGroup: teamAgeGroup(ctx.team), anyNoThrow: noThrow.size > 0 };
     const pool = candidatePool(ctx.drills, filter, exclude);
     if (!pool.length) return undefined;
     let best: Drill | undefined;
@@ -418,7 +417,7 @@ export function regenerateStation(practice: Practice, blockId: string, stationId
     groupSize,
     coachAvailable,
     levelRange: [1, 5],
-    ageGroup: ctx.team.ageGroup,
+    ageGroup: teamAgeGroup(ctx.team),
     anyNoThrow: noThrow.size > 0
   };
   let pool = candidatePool(ctx.drills, filter, exclude);
