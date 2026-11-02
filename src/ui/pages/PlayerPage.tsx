@@ -149,7 +149,7 @@ export function PlayerPage() {
                 <div className="grow">
                   <div><strong>{READ_LABEL[o.read]}</strong>{o.category ? ` · ${CATEGORY_LABEL[o.category]}` : ''}{o.source === 'game' ? ' · game' : ''}{o.drillId ? ` · ${drills.find((d) => d.id === o.drillId)?.name ?? ''}` : ''}</div>
                   {o.text && <div>{o.text}</div>}
-                  <div className="muted">{timeAgo(o.ts)}</div>
+                  <div className="muted">{timeAgo(o.ts)}{o.by ? ` · ${o.by}` : ''}</div>
                 </div>
                 <button className="btn sm ghost" onClick={async () => { await db.observations.delete(o.id); toast.show('Removed'); }} aria-label="Remove">✕</button>
               </div>

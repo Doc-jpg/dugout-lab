@@ -316,6 +316,8 @@ export interface Observation {
   text?: string;
   /** 'game' observations come from game day; they feed practice suggestions too. */
   source: 'practice' | 'game' | 'quick';
+  /** Which coach wrote it (from Settings), so merged notes from several phones stay attributed. */
+  by?: string;
   ts: ISODateTime;
 }
 

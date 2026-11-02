@@ -10,6 +10,7 @@ Newest first.
 - Home plans pick two or three yard-sized drills (space tight or half, one adult at most, two players at most, home gear only, no high throwing load) from active technical goals, then rough-note categories, then the lowest assessed area. A saved player version wins; goal words are matched against drill names and tags so "drop step" finds the drop-step drill.
 - Effort and attitude are observed behaviors in the quick-note chips (Hustled, Good teammate, Took the cue, Went through the motions), not ratings.
 - Family opt-out is a per-player setting (`share: 'none'`) and the due list respects it.
+- Several coaches, no server: a coach pack (roster without private fields or family contacts, drills, versions, open practices) goes to each assistant; after practice each one backs up and the head coach merges. Observations carry `by` (the coach's name from Settings). Merge keeps the head coach's private player fields even when the assistant's copy of the player is newer (`keepPrivate`), because a pack-stripped record would otherwise erase them. Tested end to end in suggestions_backup.test.ts.
 - Multi-coach live sync stays Phase 3: the data model already merges by record (backup merge), which is the hard part; the server, accounts and roles are the remaining work. Decision: ship to one coach first, build sync only if two or more adopt it.
 - Tests: 30 vitest; browser walkthrough extended with the family flow (contact, home plan, text and email drafts without private note text, scorecard popup with band and no teammate names, parents page).
 

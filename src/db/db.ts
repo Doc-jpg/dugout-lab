@@ -185,7 +185,8 @@ export async function updatePractice(id: string, patch: Partial<Practice>, datab
 }
 
 export async function addObservation(input: Omit<Observation, 'id' | 'ts'> & { ts?: string }, database: DugoutLabDB = db): Promise<Observation> {
-  const o: Observation = { id: newId(), ts: nowIso(), ...input };
+  const by = input.by ?? (await getSettings(database)).coachName;
+  const o: Observation = { id: newId(), ts: nowIso(), ...input, by };
   await database.observations.put(o);
   return o;
 }

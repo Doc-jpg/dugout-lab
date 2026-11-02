@@ -64,6 +64,37 @@ export async function buildBackup(appVersion: string, database: DugoutLabDB = de
   return { bytes, fileName: `dugout-lab-backup-${stamp}.zip`, manifest };
 }
 
+/**
+ * Coach pack: what an assistant needs to run the same practice and take notes on his own phone.
+ * Roster (without family contacts and the head coach's private notes), drills, player versions,
+ * and planned or live practices. No observations, no update history, no settings.
+ */
+export async function buildCoachPack(appVersion: string, teamId: string, database: DugoutLabDB = defaultDb): Promise<{ bytes: Uint8Array; fileName: string }> {
+  const json = (v: unknown) => strToU8(JSON.stringify(v, null, 2));
+  const team = await database.teams.get(teamId);
+  const players = (await database.players.where('teamId').equals(teamId).toArray()).map((p) => ({ ...p, parents: undefined, responseNotes: undefined, confidenceNotes: undefined, selfReflection: undefined }));
+  const ids = new Set(players.map((p) => p.id));
+  const drills = await database.drills.toArray();
+  const variants = (await database.variants.toArray()).filter((v) => !v.playerId || ids.has(v.playerId));
+  const practices = (await database.practices.where('teamId').equals(teamId).toArray()).filter((p) => p.status !== 'done');
+  const files: Record<string, Uint8Array> = {
+    'teams.json': json(team ? [team] : []),
+    'players.json': json(players),
+    'drills.json': json(drills),
+    'variants.json': json(variants),
+    'practices.json': json(practices),
+    'observations.json': json([]),
+    'throwing.json': json([]),
+    'parentUpdates.json': json([]),
+    'settings.json': json(null)
+  };
+  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), files: {} };
+  for (const [name, bytes] of Object.entries(files)) manifest.files[name] = { sha256: await sha256Hex(bytes), bytes: bytes.length, records: name === 'settings.json' ? 0 : (JSON.parse(strFromU8(bytes)) as unknown[]).length };
+  files['manifest.json'] = json(manifest);
+  const stamp = manifest.createdAt.slice(0, 10);
+  return { bytes: zipSync(files, { level: 6 }), fileName: `dugout-lab-coach-pack-${(team?.shortName ?? 'team').replace(/\s+/g, '-')}-${stamp}.zip` };
+}
+
 export async function readBackup(bytes: Uint8Array): Promise<BackupContents> {
   let entries: Record<string, Uint8Array>;
   try {
@@ -107,6 +138,14 @@ export interface RestoreReport {
   keptNewerHere: Array<{ table: string; id: string; here: string; backup: string }>;
 }
 
+/** Fields a coach pack strips. A newer copy from another phone never erases them. */
+const PRIVATE_PLAYER_FIELDS = ['parents', 'share', 'responseNotes', 'confidenceNotes', 'selfReflection'] as const;
+function keepPrivate(cur: any, incoming: any): any {
+  const out = { ...incoming };
+  for (const f of PRIVATE_PLAYER_FIELDS) if (out[f] === undefined && cur[f] !== undefined) out[f] = cur[f];
+  return out;
+}
+
 function stamp(r: any): string {
   return r.updatedAt ?? r.ts ?? r.createdAt ?? '';
 }
@@ -128,7 +167,7 @@ export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'r
           await table.put(rec);
           added += 1;
         } else if (stamp(rec) > stamp(cur)) {
-          await table.put(rec);
+          await table.put(t === 'players' ? keepPrivate(cur, rec) : rec);
           updated += 1;
         } else if (stamp(rec) < stamp(cur)) {
           report.keptNewerHere.push({ table: t, id: rec.id, here: stamp(cur), backup: stamp(rec) });

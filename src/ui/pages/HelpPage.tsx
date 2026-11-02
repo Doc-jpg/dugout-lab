@@ -64,6 +64,14 @@ export function HelpPage() {
         </ul>
       </div>
       <div className="card">
+        <h2>Assistant coaches</h2>
+        <ul className="step-list small">
+          <li>Settings, Other coaches, "Share a coach pack": roster, drills, player versions and the plan, with no family contacts and none of your private notes. The assistant restores it on his phone (Settings, Restore, Replace).</li>
+          <li>He runs his station from the same plan and takes quick notes on his phone. After practice he backs up and sends you the file; you tap "Merge a coach's backup". Notes add up and show who wrote them. Nothing of yours is overwritten.</li>
+          <li>Put each coach's name in Settings so the notes carry it.</li>
+        </ul>
+      </div>
+      <div className="card">
         <h2>What it will not do</h2>
         <ul className="step-list small">
           <li>Diagnose a child, assign a label, or rank kids against each other. Notes describe behavior you saw.</li>

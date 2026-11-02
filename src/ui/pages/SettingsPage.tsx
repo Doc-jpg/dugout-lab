@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSettings, useTeams, useCurrentTeam, usePlayers } from '../hooks';
 import { saveSettings, createTeam, updateTeam, storageHealth, requestPersistence, db, playerName, type StorageHealth } from '../../db/db';
-import { buildBackup, readBackup, restoreBackup, readDugoutDadArchive, planRosterImport, commitRosterImport, shareOrDownload, type BackupContents, type RestoreReport, type DugoutDadRoster, type RosterImportPlan } from '../../io/backup';
+import { buildBackup, buildCoachPack, readBackup, restoreBackup, readDugoutDadArchive, planRosterImport, commitRosterImport, shareOrDownload, type BackupContents, type RestoreReport, type DugoutDadRoster, type RosterImportPlan } from '../../io/backup';
 import { loadDemoData, removeDemoData, DEMO_TEAM_ID } from '../../data/demo';
 import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, nowIso, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
 import { APP_VERSION } from '../version';
@@ -117,6 +117,15 @@ export function SettingsPage() {
         </div>
         {health && <div className={`banner ${health.verdict === 'install' ? 'warn' : 'info'} small`} style={{ marginTop: 10 }}>{health.message}{health.usageBytes != null ? ` Using ${(health.usageBytes / 1024 / 1024).toFixed(1)} MB.` : ''}</div>}
         {health?.verdict === 'install' && <button className="btn sm" onClick={async () => { await requestPersistence(); setHealth(await storageHealth()); }}>Ask the browser to keep this data</button>}
+      </div>
+
+      <div className="card" id="coaches">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>Other coaches</h3></div>
+        <p className="muted small" style={{ marginTop: 0 }}>Each coach runs the app on his own phone. Send an assistant a coach pack (roster, drills, player versions and the plan; no family contacts, no private notes). He takes notes at his station, backs up after practice, sends you the file, and you merge it here: notes add up, each one tagged with who wrote it, nothing overwritten. Put your name in "Your name on parent drafts" above so your notes carry it too.</p>
+        <div className="row wrap">
+          <button className="btn" disabled={!team || busy} onClick={async () => { if (!team) return; setBusy(true); try { const { bytes, fileName } = await buildCoachPack(APP_VERSION, team.id); const how = await shareOrDownload(bytes, fileName); toast.show(`${how === 'shared' ? 'Shared' : 'Downloaded'} ${fileName}`); } finally { setBusy(false); } }}>Share a coach pack</button>
+          <button className="btn" onClick={openBackup}>Merge a coach's backup</button>
+        </div>
       </div>
 
       <div className="card" id="dugout-dad">

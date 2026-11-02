@@ -163,3 +163,51 @@ describe('Test B and G: persistence and backup round trip', () => {
     expect(plan2.update.length).toBe(2);
   });
 });
+
+describe('two coaches, one practice: notes from two phones merge without loss', () => {
+  it('coach pack carries roster, drills, versions and the plan but no private notes; both coaches\' notes survive the merge', async () => {
+    const head = new DugoutLabDB(`head-${Math.random().toString(36).slice(2)}`);
+    await seedLibrary(head);
+    await head.settings.put({ ...(await import('../src/engine/types')).DEFAULT_SETTINGS, coachName: 'Deren' });
+    await createTeam({ id: 't', name: 'T', ageGroup: '12U' }, head);
+    await createPlayer({ id: 'j', teamId: 't', firstName: 'Johnny', lastName: 'Q', responseNotes: 'private', confidenceNotes: 'private too', parents: [{ name: 'Mom', phone: '555' }] }, head);
+    await head.practices.put({ id: 'plan', teamId: 't', date: '2026-11-03', status: 'planned', inputs: { teamId: 't', presentIds: ['j'], absentIds: [], durationMin: 60, coaches: 2, equipment: [], space: 'full', indoor: false, teamPriorities: [], playerPriorities: {}, noThrowingIds: [] }, blocks: [], rationale: [], createdAt: ts, updatedAt: ts });
+    const { buildCoachPack } = await import('../src/io/backup');
+    const pack = await readBackup((await buildCoachPack('0.1.0', 't', head)).bytes);
+    expect(pack.players[0].responseNotes).toBeUndefined();
+    expect(pack.players[0].parents).toBeUndefined();
+    expect(pack.practices.length).toBe(1);
+    expect(pack.observations.length).toBe(0);
+    // Assistant restores the pack on his phone and takes notes at his station
+    const asst = new DugoutLabDB(`asst-${Math.random().toString(36).slice(2)}`);
+    await restoreBackup(pack, 'replace', asst);
+    await asst.settings.put({ ...(await import('../src/engine/types')).DEFAULT_SETTINGS, coachName: 'Aaron' });
+    await addObservation({ playerId: 'j', read: 'got_it', category: 'infield', practiceId: 'plan', source: 'practice' }, asst);
+    await addObservation({ playerId: 'j', read: 'hustle', practiceId: 'plan', source: 'practice' }, asst);
+    // Head coach took his own notes meanwhile
+    await addObservation({ playerId: 'j', read: 'struggled', category: 'hitting', practiceId: 'plan', source: 'practice' }, head);
+    // Merge the assistant's backup into the head coach's phone
+    const report = await restoreBackup(await readBackup((await buildBackup('0.1.0', asst)).bytes), 'merge', head);
+    expect(report.added.observations).toBe(2);
+    const all = await head.observations.where('playerId').equals('j').toArray();
+    expect(all.length).toBe(3);
+    expect(all.filter((o) => o.by === 'Aaron').length).toBe(2);
+    expect(all.filter((o) => o.by === 'Deren').length).toBe(1);
+    // Private notes and family contacts on the head coach's phone are untouched
+    const j = await head.players.get('j');
+    expect(j?.responseNotes).toBe('private');
+    expect(j?.parents?.[0].name).toBe('Mom');
+    // The assistant set a level (his copy is now newer): the level comes across, the private fields stay
+    await new Promise((r) => setTimeout(r, 5));
+    await updatePlayer('j', { levels: { infield: 4 } }, asst);
+    const report2 = await restoreBackup(await readBackup((await buildBackup('0.1.0', asst)).bytes), 'merge', head);
+    expect(report2.updated.players).toBe(1);
+    const j2 = await head.players.get('j');
+    expect(j2?.levels.infield).toBe(4);
+    expect(j2?.responseNotes).toBe('private');
+    expect(j2?.confidenceNotes).toBe('private too');
+    expect(j2?.parents?.[0].name).toBe('Mom');
+    head.close();
+    asst.close();
+  });
+});

@@ -26,6 +26,7 @@ Personalized youth baseball practice planning and player development. Private, o
 | Roster import from a Dugout Dad weekend archive (explicit, previewed, never touches Dugout Dad) | Working |
 | Family: parent contacts, what each family gets, home plan (two or three yard drills from his goals and notes, with cues, reps and a parent tip), text and email drafts opened in Messages or Mail (never auto-sent), printable scorecard with the team as an anonymous band, who-is-due list, update history | Working |
 | Effort and attitude reads (hustled, good teammate, took the cue, went through the motions) in quick notes, drafts and scorecards | Working |
+| Several coaches on their own phones: coach pack export (no private notes or contacts), notes tagged by coach, merge after practice with nothing overwritten | Working |
 | Demo team (fictional, marked, removable) | Working |
 | Offline: full app shell precached; verified reload with the network off and notes saved offline | Working |
 | Voice notes, video reference clips, multi-coach live sync | Roadmap (see docs/ROADMAP.md) |
