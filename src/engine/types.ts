@@ -528,8 +528,32 @@ export interface Settings {
   pinSalt?: string;
   /** When the coach finished or skipped the guided tour. */
   tourSeenAt?: ISODateTime;
-  /** Set when this phone was set up from a coach pack: who the head coach said this phone belongs to. Notes are tagged with it and the name cannot be edited here. */
+  /** Set when this phone was set up from a coach pack or an invite link: who the head coach said this phone belongs to. Notes are tagged with it and the name cannot be edited here. */
   packIdentity?: { helperId: ID; name: string; teamId: ID; from?: string; sentAt: ISODateTime };
+  /** Automatic sync with the other coaches' phones. Never leaves this phone. */
+  sync?: SyncState;
+}
+
+export interface SyncState {
+  /** The team secret every invite link carries. Sent in a header, stored nowhere but on the phones. */
+  teamKey: string;
+  /** sha256 of the team key; the server's row key. */
+  teamId: string;
+  /** This phone's own token. Revoking it on the head coach's phone shuts this phone off without touching the others. */
+  token: string;
+  role: 'head' | 'helper';
+  /** The name on the invite, which the server stamps on every note from this phone. */
+  name: string;
+  device: string;
+  enabled: boolean;
+  /** Set when the head coach turned this phone's access off; sync stops and the screen says so. */
+  revoked?: boolean;
+  /** The local team this sync carries (the head coach's current team at turn-on). */
+  localTeamId?: ID;
+  lastPush?: ISODateTime;
+  lastPullTs?: string;
+  lastSyncAt?: ISODateTime;
+  lastError?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

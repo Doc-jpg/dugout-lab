@@ -14,3 +14,7 @@ Updates: when a new version is published, the app picks it up the next time it o
 ## Android (assistant coaches)
 
 Same address, same app. Open https://doc-jpg.github.io/dugout-lab/ in Chrome, tap the menu, Install app (or Add to Home screen). Backups and coach packs go out through Android's share sheet and come in through the file picker (Settings, Restore from a backup). Talk uses Google's speech recognition. No account, nothing to download from a store.
+
+## Other coaches (linked phones)
+
+On the head coach's phone: Settings, Other coaches, Turn on linked phones (needs a signal, once). Then + Invite a coach, his first name and role, Send the link. On his phone: open the link in Safari or Chrome, tap "Set up this phone as Aaron", then Add to Home Screen like any other. From then on nothing is sent by hand. Turn off anyone's access from the same list.

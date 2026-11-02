@@ -306,8 +306,11 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await ctx2.close();
 
   // A pack made for Mark: his phone is set up as Mark in one tap, and his notes come back tagged Mark
+  // (packs live under "No signal?" now that linked phones are the main path)
+  const openPacks = async (pg) => { const d = pg.locator('details', { hasText: 'Coach packs by file' }); if (await d.count() && !(await d.evaluate((el) => el.open))) await d.locator('summary').click(); };
   await page.goto(URL + '#/settings');
   await page.waitForSelector('text=Other coaches');
+  await openPacks(page);
   await page.getByRole('button', { name: 'Send a coach pack' }).click();
   await page.waitForSelector('text=Who is this pack for?');
   await page.fill('.sheet input', 'Mark');
@@ -319,6 +322,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await packDl.saveAs(packFile);
   expect('pack file named for Mark', /for-Mark/.test(packDl.suggestedFilename()), true);
   await page.waitForSelector('.sheet', { state: 'detached' });
+  await openPacks(page);
   expect('Mark listed with pack sent', /Mark · Parent coach\s*Pack sent/.test(await body()), true);
   const ctx3 = await browser.newContext({ ...devices[process.env.DEVICE || 'iPhone 13'] });
   const p3 = await ctx3.newPage();
@@ -351,6 +355,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await ctx3.close();
   await page.goto(URL + '#/settings');
   await page.waitForSelector('text=Other coaches');
+  await openPacks(page);
   const [chooser4] = await Promise.all([page.waitForEvent('filechooser'), page.click('role=button[name="Merge a coach\'s backup"]')]);
   await chooser4.setFiles(markFile);
   await page.waitForSelector('text=Restore from backup');
@@ -360,6 +365,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await page.locator('.sheet').getByRole('button', { name: 'Done' }).click();
   await page.goto(URL + '#/settings');
   await page.waitForSelector('text=Other coaches');
+  await openPacks(page);
   expect('Mark listed with notes back', /notes back/.test(await body()), true);
   await page.goto(URL + '#/players');
   await page.waitForSelector('text=Nico');
@@ -368,6 +374,92 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await page.getByRole('button', { name: /Notes \(/ }).click();
   await settle();
   expect("Mark's note landed on Nico tagged Mark", /Nico hustled on every ground ball[\s\S]*· Mark/.test(await body()), true);
+
+  // Linked phones through the live sync server: invite Aaron by link, his phone sets itself up, notes flow both ways, revoke stops him
+  const waitFor = async (pg, re, ms = 25000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (re.test(await pg.locator('body').innerText())) return true; await pg.waitForTimeout(700); } return false; };
+  await page.goto(URL + '#/settings');
+  await page.waitForSelector('text=Other coaches');
+  await page.getByRole('button', { name: /Turn on linked phones/ }).click();
+  expect('linked phones turned on', await waitFor(page, /linked phones on/), true);
+  await page.getByRole('button', { name: '+ Invite a coach' }).click();
+  await page.waitForSelector('text=Invite a coach');
+  await page.fill('.sheet input', 'Aaron');
+  await page.locator('.sheet').getByRole('button', { name: 'Assistant', exact: true }).first().click();
+  await page.locator('.sheet').getByRole('button', { name: 'Make the invite' }).click();
+  await page.waitForSelector('text=Invite for Aaron');
+  const inviteLink = (await page.locator('.sheet pre').innerText()).trim();
+  expect('invite link carries the name and secrets in the hash', /#\/join\?t=[A-Z2-9]{20}&c=[A-Z2-9]{20}&n=Aaron/.test(inviteLink), true);
+  await page.locator('.sheet').getByRole('button', { name: 'Done' }).click();
+  expect('Aaron listed as invited', await waitFor(page, /Aaron · Assistant[\s\S]*Invited, has not opened the link yet/), true);
+  const ctx5 = await browser.newContext({ ...devices[process.env.DEVICE || 'iPhone 13'] });
+  const p5 = await ctx5.newPage();
+  await p5.goto(inviteLink.replace(/^https?:\/\/[^#]+/, URL));
+  await p5.waitForSelector('text=Set up this phone as Aaron');
+  await p5.getByRole('button', { name: 'Set up this phone as Aaron' }).click();
+  expect("Aaron's phone received the team through the server", await waitFor(p5, /All set/, 40000), true);
+  await p5.goto(URL + '#/settings');
+  await p5.waitForSelector('text=Linked');
+  expect("Aaron's phone shows his locked name", /This phone is Aaron's/.test(await p5.locator('body').innerText()), true);
+  await p5.goto(URL + '#/players');
+  expect("Aaron's phone has the roster", await waitFor(p5, /Jonah/), true);
+  // A note on Aaron's phone reaches Deren's phone with Aaron's name, without anyone sending anything
+  await p5.goto(URL + '#/today');
+  await p5.waitForSelector('text=Next practice');
+  await p5.getByRole('button', { name: '+ Note', exact: true }).click();
+  await p5.waitForSelector('.sheet');
+  await p5.locator('.sheet textarea').fill('Theo took the cue on the drop step');
+  await p5.waitForTimeout(300);
+  await p5.getByRole('button', { name: /^Save for Theo/ }).click();
+  await p5.waitForSelector('.sheet', { state: 'detached' });
+  await p5.waitForTimeout(3500); // sync fires two seconds after a change
+  await page.reload(); // a reload is "opening the app", which syncs
+  await page.waitForSelector('text=Other coaches');
+  await page.goto(URL + '#/players');
+  await page.waitForSelector('text=Theo');
+  await page.click('text=Theo');
+  await page.waitForSelector('text=Try next');
+  await page.getByRole('button', { name: /Notes \(/ }).click();
+  expect("Aaron's note arrived on Deren's phone tagged Aaron", await waitFor(page, /Theo took the cue on the drop step[\s\S]*· Aaron/), true);
+  // A goal Deren adds reaches Aaron's phone on his next open
+  await page.getByRole('button', { name: 'Today', exact: true }).first().click().catch(() => undefined);
+  await page.goto(URL + '#/players');
+  await page.waitForSelector('text=Theo');
+  await page.click('text=Theo');
+  await page.waitForSelector('text=Try next');
+  await page.getByRole('button', { name: '+ Goal' }).first().click();
+  await page.waitForSelector('.sheet');
+  await page.fill('.sheet textarea', 'Glove out front on the backhand');
+  await page.locator('.sheet-foot >> role=button[name="Add"]').click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
+  await page.waitForTimeout(3500);
+  await p5.reload();
+  await p5.waitForSelector('text=Next practice');
+  await p5.goto(URL + '#/players');
+  await p5.waitForSelector('text=Theo');
+  await p5.click('text=Theo');
+  expect("Deren's goal reached Aaron's phone", await waitFor(p5, /Glove out front on the backhand/), true);
+  // Deren turns Aaron off; Aaron's phone finds out on its next sync and stops
+  await page.goto(URL + '#/settings');
+  await page.waitForSelector('text=Other coaches');
+  expect('Aaron now shows as synced', await waitFor(page, /Aaron · Assistant[\s\S]*Last synced/), true);
+  await page.getByRole('button', { name: 'Turn off', exact: true }).first().click();
+  await page.waitForSelector('text=Turn off Aaron');
+  await page.locator('.sheet-foot >> role=button[name="Turn off"]').click();
+  expect('Aaron marked access off', await waitFor(page, /access off/), true);
+  await p5.goto(URL + '#/today');
+  await p5.waitForSelector('text=Next practice');
+  await p5.getByRole('button', { name: '+ Note', exact: true }).click();
+  await p5.waitForSelector('.sheet');
+  await p5.locator('.sheet textarea').fill('Jonah hustled');
+  await p5.waitForTimeout(300);
+  await p5.getByRole('button', { name: /^Save for Jonah/ }).click();
+  await p5.waitForSelector('.sheet', { state: 'detached' });
+  await p5.waitForTimeout(3500);
+  await p5.goto(URL + '#/settings');
+  await p5.reload();
+  await p5.waitForSelector('text=Linked');
+  expect("Aaron's phone says his access was turned off", await waitFor(p5, /access was turned off by the head coach/), true);
+  await ctx5.close();
 
   // Test C (as far as a desktop browser can): offline reload serves the app and data
   await ctx.setOffline(true);

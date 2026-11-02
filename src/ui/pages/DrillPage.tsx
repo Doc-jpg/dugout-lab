@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDrill, useVariants, useCurrentTeam, usePlayers } from '../hooks';
-import { updateDrill, duplicateDrill, saveVariant, playerName, db } from '../../db/db';
+import { updateDrill, duplicateDrill, saveVariant, playerName, deleteVariant } from '../../db/db';
 import { CATEGORY_LABEL, BLOCK_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, LEVEL_LABEL, STYLE_WORD, THROWING_LOAD_WORD, type DrillVariant } from '../../engine/types';
 import { DrillEditor } from '../components/DrillEditor';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
@@ -89,7 +89,7 @@ function VariantSheet({ drillId, initial, players, onClose, onSaved }: { drillId
   const set = (k: keyof DrillVariant, val: any) => setV({ ...v, [k]: val });
   const ok = (v.playerId || v.groupLabel) && v.name?.trim();
   return (
-    <Sheet title={v.id ? 'Edit version' : 'Version for a player'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button>{v.id && <button className="btn" style={{ color: 'var(--danger)' }} onClick={async () => { await db.variants.delete(v.id!); onSaved(); }}>Delete</button>}<button className="btn primary" disabled={!ok} onClick={async () => { await saveVariant({ ...(v as any), drillId, cues: cues.split('\n').map((c) => c.trim()).filter(Boolean) }); onSaved(); }}>Save</button></>}>
+    <Sheet title={v.id ? 'Edit version' : 'Version for a player'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button>{v.id && <button className="btn" style={{ color: 'var(--danger)' }} onClick={async () => { await deleteVariant(v.id!); onSaved(); }}>Delete</button>}<button className="btn primary" disabled={!ok} onClick={async () => { await saveVariant({ ...(v as any), drillId, cues: cues.split('\n').map((c) => c.trim()).filter(Boolean) }); onSaved(); }}>Save</button></>}>
       <div className="field"><label>Player</label><div className="chips">{players.filter((p) => p.status === 'active').map((p) => <button key={p.id} className={`chip sm ${v.playerId === p.id ? 'on' : ''}`} onClick={() => setV({ ...v, playerId: p.id, groupLabel: undefined })}>{playerName(p, 'short')}</button>)}</div></div>
       <div className="field"><label>Or a group label</label><input className="input" value={v.groupLabel ?? ''} onChange={(e) => setV({ ...v, groupLabel: e.target.value || undefined, playerId: e.target.value ? undefined : v.playerId })} placeholder="Newer infielders" /></div>
       <div className="field"><label>Short name</label><input className="input" value={v.name ?? ''} onChange={(e) => set('name', e.target.value)} placeholder="Stationary, soft balls, short" /></div>

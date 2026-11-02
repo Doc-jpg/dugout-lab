@@ -27,14 +27,14 @@ Personalized youth baseball practice planning and player development. Private, o
 | Family: parent contacts, what each family gets, home plan (two or three yard drills from his goals and notes, with cues, reps and a parent tip), text and email drafts opened in Messages or Mail (never auto-sent), printable scorecard with the team as an anonymous band, who-is-due list, update history | Working |
 | Effort and attitude reads (hustled, good teammate, took the cue, went through the motions) in quick notes, drafts and scorecards | Working |
 | Branding per team: program name, tagline, logo upload, eyedropper and auto palette from the logo, primary and accent colors that restyle the app, coaches with contacts, footer; carried onto scorecards, home plans and parent drafts. White-label build via `BRAND_NAME` / `BRAND_COLOR` | Working |
-| Several coaches on their own phones: coach pack export (no private notes or contacts), notes tagged by coach, merge after practice with nothing overwritten | Working |
+| Linked phones: the head coach invites each coach by link (a team key plus a per-coach token, both in the hash fragment); his phone sets itself up as that person in one tap; from then on roster, goals, cues and plans sync to him and his notes sync back stamped with his name by the server; lists union, newer wins, head coach's private notes and family contacts never leave his phone; revoke one coach without touching the others. Coach packs by file remain as the no-signal fallback | Working |
 | Player limits (no throwing, hitting or running until a date) honored by every plan; reuse a plan with objectives rebuilt for who is here; move players between groups; PIN lock | Working |
 | Coach notes on every library drill: common mistakes with the fix, safety line where one exists, spacing, make it a game; library audited (docs/DECISIONS.md, 2026-11-02 audit) | Working |
 | Notes any way you like: tap the kid and a button; or say it (Tap to talk, browser speech recognition) or type it, and the app guesses who, what you saw and the area from the words for one-tap confirmation; nicknames per player; shared first names ask instead of guessing | Working |
 | Guided tour (nine stops on the real screens, offered once, replayable from Help or Setup) and a searchable FAQ on the Help page | Working |
 | Demo team (fictional, marked, removable) | Working |
 | Offline: full app shell precached; verified reload with the network off and notes saved offline | Working |
-| Stored voice clips, video reference clips, multi-coach live sync | Roadmap (see docs/ROADMAP.md) |
+| Stored voice clips, video reference clips, conflict review | Roadmap (see docs/ROADMAP.md) |
 
 ## Run it
 

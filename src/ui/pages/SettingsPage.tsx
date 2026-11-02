@@ -8,6 +8,7 @@ import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, n
 import { APP_VERSION } from '../version';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 import { BrandSheet } from '../components/BrandSheet';
+import { SyncCard } from '../components/SyncCard';
 import { pinHashFor } from '../components/LockScreen';
 
 export function SettingsPage() {
@@ -149,8 +150,7 @@ export function SettingsPage() {
         {health?.verdict === 'install' && <button className="btn sm" onClick={async () => { await requestPersistence(); setHealth(await storageHealth()); }}>Ask the browser to keep this data</button>}
       </div>
 
-      <div className="card" id="coaches">
-        <div className="section-title" style={{ marginTop: 0 }}><h3>Other coaches</h3></div>
+      <SyncCard team={team} fallback={<>
         <p className="muted small" style={{ marginTop: 0 }}>Each coach runs the app on his own phone. Pick who you are sending to; the pack carries his name, his phone is set up as his in one tap, and every note he sends back is tagged with it. He never types anything. The pack has the roster, drills, player versions and the plan; no family contacts, no private notes.</p>
         {team?.helpers?.length ? (
           <div className="list" style={{ marginBottom: 8 }}>
@@ -166,7 +166,7 @@ export function SettingsPage() {
           <button className="btn primary" disabled={!team || busy} onClick={() => setPackSheet(true)}>{team?.helpers?.length ? '+ New person' : 'Send a coach pack'}</button>
           <button className="btn" onClick={openBackup}>Merge a coach's backup</button>
         </div>
-      </div>
+      </>} />
 
       <div className="card" id="dugout-dad">
         <div className="section-title" style={{ marginTop: 0 }}><h3>Roster from Dugout Dad</h3></div>

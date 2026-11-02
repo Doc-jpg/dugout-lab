@@ -148,8 +148,8 @@ export interface RestoreReport {
 }
 
 /** Fields a coach pack strips. A newer copy from another phone never erases them. */
-const PRIVATE_PLAYER_FIELDS = ['parents', 'share', 'responseNotes', 'confidenceNotes', 'selfReflection'] as const;
-function stamp(r: any): string {
+export const PRIVATE_PLAYER_FIELDS = ['parents', 'share', 'responseNotes', 'confidenceNotes', 'selfReflection'] as const;
+export function stamp(r: any): string {
   return r.updatedAt ?? r.ts ?? r.createdAt ?? '';
 }
 
@@ -180,6 +180,15 @@ export function mergePlayer(cur: any, incoming: any): any {
   out.statuses = { ...(older.statuses ?? {}), ...(newer.statuses ?? {}) };
   for (const f of PRIVATE_PLAYER_FIELDS) if (cur[f] !== undefined) out[f] = cur[f];
   out.updatedAt = newer.updatedAt ?? out.updatedAt;
+  // The merge added something the newer copy did not have: stamp it newer than both so sync carries
+  // the union onward instead of treating it as the same record (the server ignores equal stamps).
+  const publicOut = { ...out };
+  const publicNewer = { ...newer };
+  for (const f of PRIVATE_PLAYER_FIELDS) { delete publicOut[f]; delete publicNewer[f]; }
+  if (!sameRecord(publicOut, publicNewer)) {
+    const bump = new Date(Math.max(Date.now(), new Date(out.updatedAt ?? 0).getTime() + 1)).toISOString();
+    out.updatedAt = bump;
+  }
   return out;
 }
 
@@ -370,4 +379,16 @@ export async function shareOrDownload(bytes: Uint8Array, fileName: string, mime 
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   return 'downloaded';
+}
+
+/** One rule for every table, shared by restore and sync: players merge field by field, everything else newer wins. */
+export function mergeRecord(table: string, cur: any, incoming: any): any {
+  if (table === 'players') return mergePlayer(cur, incoming);
+  return stamp(incoming) > stamp(cur) ? incoming : cur;
+}
+
+/** Equal regardless of key order, so a record that came back unchanged is not counted as a change. */
+export function sameRecord(a: any, b: any): boolean {
+  const norm = (v: any): any => Array.isArray(v) ? v.map(norm) : v && typeof v === 'object' ? Object.keys(v).sort().reduce((o: any, k) => { if (v[k] !== undefined) o[k] = norm(v[k]); return o; }, {}) : v;
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 }

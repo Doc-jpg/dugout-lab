@@ -22,9 +22,9 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 ## Phase 3
 - Video reference links and locally stored clips, with no claims of mechanical diagnosis.
 - Richer analytics with honest sample sizes.
-- Multi-coach collaboration (shared backup first, then optional sync with accounts and roles).
+- Done 2026-11-02: multi-coach sync by invite link with per-coach revocation (no accounts; a team key plus per-coach tokens).
 - Parent-facing summaries delivered through a server (a link that stays current) rather than a file; never private notes. Phase 1 already drafts texts, emails, home plans and scorecards from the phone.
-- Sync between devices with conflict review.
+- Conflict review screen (what merged, what the newer edit replaced).
 
 ## Product and resale
 - Per-team branding is in. Next for a sellable copy: a build script that takes a brand file (name, colors, icon PNGs) and produces the PWA; a hosted landing page per program; and the sync server from Phase 3 with team invite codes so a program can hand the app to its coaches without passing files.

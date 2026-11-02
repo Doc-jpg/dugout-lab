@@ -42,3 +42,9 @@ Daily limits and rest days by age from the public MLB / USA Baseball table (see 
 ## Offline
 
 vite-plugin-pwa precaches the app shell (about 650 KB including the drill library). Data is in IndexedDB. Live practice state (block, rotation, elapsed seconds, running-since) is written to the practice record on every change and restored on reopen. Storage status: an installed home-screen app counts as safe (iOS never answers the persistence API), a browser tab shows an install prompt.
+
+## Linked phones (src/io/sync.ts, docs/sync-schema.sql)
+
+A dumb record store on a free Supabase project, shared with Athletic Lab but in Dugout Lab's own tables. `dugout_members` holds (team_id, token_hash, name, role, head, revoked, last_seen); `dugout_records` holds one row per record (team_id, tbl, id, stamp, data, deleted, device, coach, server_ts). The team key and the per-coach token travel in the `x-team-key` and `x-coach-token` headers; row-level security compares their sha256 to the stored hashes, so the server never holds a secret. A trigger refuses equal or older stamps, sets `server_ts`, and stamps `coach` from the member's invite name.
+
+Client: `startTeamSync` (head coach, once), `makeInvite` (writes the member, returns the link `#/join?t=KEY&c=TOKEN&n=Name&f=From`), `joinTeam` (helper, locks the name via `packIdentity`), `syncNow` (push records with stamp newer than `lastPush`, plus tombstones; pull rows with `server_ts` newer than `lastPullTs`, skipping our own device; merge with `mergeRecord`; re-push after a merge), `listMembers` and `setMemberRevoked` (head coach). `outgoing()` decides what a phone sends: never parent updates, settings, untouched library drills, or the private player fields. Helpers never push tombstones for players, teams or drills. `startSyncLoop` wires open, foreground, online, two seconds after a change and every two minutes.

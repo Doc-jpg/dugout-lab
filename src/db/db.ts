@@ -12,6 +12,26 @@ export interface Meta {
   value: unknown;
 }
 
+/** A deletion that still has to reach the other phones. */
+export interface Tombstone {
+  key: string;
+  tbl: string;
+  id: string;
+  ts: string;
+}
+
+export const DATA_TABLES = ['teams', 'players', 'drills', 'variants', 'practices', 'observations', 'throwing', 'parentUpdates'] as const;
+export type DataTable = (typeof DATA_TABLES)[number];
+
+/** Set quiet while sync applies pulled rows so those writes do not kick another sync. */
+export const changeGate = { quiet: false };
+
+/** Tell the sync loop something changed (debounced there). Harmless outside a browser. */
+export function noteChange(): void {
+  if (changeGate.quiet) return;
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('dugout-lab:changed'));
+}
+
 export class DugoutLabDB extends Dexie {
   teams!: Table<Team, string>;
   players!: Table<Player, string>;
@@ -23,6 +43,7 @@ export class DugoutLabDB extends Dexie {
   settings!: Table<Settings, string>;
   meta!: Table<Meta, string>;
   parentUpdates!: Table<ParentUpdate, string>;
+  tombstones!: Table<Tombstone, string>;
 
   constructor(name = 'dugout-lab') {
     super(name);
@@ -40,7 +61,22 @@ export class DugoutLabDB extends Dexie {
     this.version(2).stores({
       parentUpdates: 'id, playerId, ts'
     });
+    // v3 (2026-11-02): tombstones so a deletion reaches the other coaches' phones through sync. Existing rows untouched.
+    this.version(3).stores({
+      tombstones: 'key, ts'
+    });
+    for (const t of DATA_TABLES) {
+      const table = (this as any)[t] as Table<any, string>;
+      table.hook('creating', () => { noteChange(); });
+      table.hook('updating', () => { noteChange(); });
+      table.hook('deleting', () => { noteChange(); });
+    }
   }
+}
+
+/** Record a deletion for sync. Called inside the same transaction as the delete where possible. */
+export async function tombstone(database: DugoutLabDB, tbl: DataTable, id: string): Promise<void> {
+  await database.tombstones.put({ key: `${tbl}:${id}`, tbl, id, ts: nowIso() });
 }
 
 export const db = new DugoutLabDB();
@@ -143,11 +179,15 @@ export async function addGoal(playerId: string, goal: Omit<Player['goals'][numbe
 
 /** Remove a player and everything that is only his: notes, drill versions, throwing log, parent updates. Practices keep their history. */
 export async function deletePlayer(id: string, database: DugoutLabDB = db): Promise<void> {
-  await database.transaction('rw', [database.players, database.observations, database.variants, database.throwing, database.parentUpdates, database.practices], async () => {
+  await database.transaction('rw', [database.players, database.observations, database.variants, database.throwing, database.parentUpdates, database.practices, database.tombstones], async () => {
+    for (const o of await database.observations.where('playerId').equals(id).toArray()) await tombstone(database, 'observations', o.id);
+    for (const v of await database.variants.where('playerId').equals(id).toArray()) await tombstone(database, 'variants', v.id);
+    for (const t of await database.throwing.where('playerId').equals(id).toArray()) await tombstone(database, 'throwing', t.id);
     await database.observations.where('playerId').equals(id).delete();
     await database.variants.where('playerId').equals(id).delete();
     await database.throwing.where('playerId').equals(id).delete();
     await database.parentUpdates.where('playerId').equals(id).delete();
+    await tombstone(database, 'players', id);
     // Planned and live practices drop him from groups and objectives; finished ones keep their history.
     const open = (await database.practices.toArray()).filter((p) => p.status !== 'done' && (p.inputs.presentIds.includes(id) || p.inputs.absentIds.includes(id)));
     for (const p of open) {
@@ -164,10 +204,21 @@ export async function deletePlayer(id: string, database: DugoutLabDB = db): Prom
 
 /** Remove a practice. Notes taken during it stay with the players, just no longer tied to that practice. */
 export async function deletePractice(id: string, database: DugoutLabDB = db): Promise<void> {
-  await database.transaction('rw', [database.practices, database.observations], async () => {
+  await database.transaction('rw', [database.practices, database.observations, database.tombstones], async () => {
     await database.observations.where('practiceId').equals(id).modify({ practiceId: undefined });
+    await tombstone(database, 'practices', id);
     await database.practices.delete(id);
   });
+}
+
+export async function deleteObservation(id: string, database: DugoutLabDB = db): Promise<void> {
+  await database.transaction('rw', [database.observations, database.tombstones], async () => { await tombstone(database, 'observations', id); await database.observations.delete(id); });
+}
+export async function deleteVariant(id: string, database: DugoutLabDB = db): Promise<void> {
+  await database.transaction('rw', [database.variants, database.tombstones], async () => { await tombstone(database, 'variants', id); await database.variants.delete(id); });
+}
+export async function deleteThrowing(id: string, database: DugoutLabDB = db): Promise<void> {
+  await database.transaction('rw', [database.throwing, database.tombstones], async () => { await tombstone(database, 'throwing', id); await database.throwing.delete(id); });
 }
 
 /** Move a player to another team on this phone. His notes, goals and versions go with him. */
@@ -178,8 +229,11 @@ export async function movePlayer(id: string, teamId: string, database: DugoutLab
 /** Remove a team and everything in it. Library drills stay; custom drills stay (they are not tied to a team). */
 export async function deleteTeam(teamId: string, database: DugoutLabDB = db): Promise<number> {
   let n = 0;
-  await database.transaction('rw', [database.teams, database.players, database.observations, database.variants, database.throwing, database.parentUpdates, database.practices, database.settings], async () => {
+  await database.transaction('rw', [database.teams, database.players, database.observations, database.variants, database.throwing, database.parentUpdates, database.practices, database.settings, database.tombstones], async () => {
     const ids = (await database.players.where('teamId').equals(teamId).toArray()).map((p) => p.id);
+    for (const pid of ids) await tombstone(database, 'players', pid);
+    for (const p of await database.practices.where('teamId').equals(teamId).toArray()) await tombstone(database, 'practices', p.id);
+    await tombstone(database, 'teams', teamId);
     n += await database.observations.where('playerId').anyOf(ids).delete();
     n += await database.variants.where('playerId').anyOf(ids).delete();
     n += await database.throwing.where('playerId').anyOf(ids).delete();

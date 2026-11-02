@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { usePlayer, useObservations, useDrills, useVariants, usePractices, useThrowing, timeAgo, fmtDate, useTeam, useTeams } from '../hooks';
-import { updatePlayer, addGoal, addObservation, addThrowing, playerName, db, deletePlayer, movePlayer } from '../../db/db';
+import { updatePlayer, addGoal, addObservation, addThrowing, playerName, deletePlayer, movePlayer, deleteObservation, deleteThrowing } from '../../db/db';
 import { suggestionsFor } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
 import {
@@ -192,7 +192,7 @@ export function PlayerPage() {
           </div>
           <div className="card">
             <div className="section-title" style={{ marginTop: 0 }}><h3>Throwing log</h3><button className="btn sm" onClick={() => setThrowSheet(true)}>+ Add</button></div>
-            {throwing.filter((t) => t.playerId === p.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10).map((t) => <div key={t.id} className="small row between"><span>{fmtDate(t.date)} · {t.kind.replace('_', ' ')} · {t.pitches == null ? 'count unknown' : `${t.pitches} pitches`}{t.note ? ` · ${t.note}` : ''}</span><button className="btn sm ghost" onClick={() => db.throwing.delete(t.id)}>✕</button></div>)}
+            {throwing.filter((t) => t.playerId === p.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10).map((t) => <div key={t.id} className="small row between"><span>{fmtDate(t.date)} · {t.kind.replace('_', ' ')} · {t.pitches == null ? 'count unknown' : `${t.pitches} pitches`}{t.note ? ` · ${t.note}` : ''}</span><button className="btn sm ghost" onClick={() => deleteThrowing(t.id)}>✕</button></div>)}
             {!throwing.some((t) => t.playerId === p.id) && <div className="muted small">Nothing logged. Missing data never means cleared; log games and bullpens, including other teams.</div>}
           </div>
         </>
@@ -206,7 +206,7 @@ export function PlayerPage() {
       {throwSheet && <ThrowSheet p={p} onClose={() => setThrowSheet(false)} onSaved={() => { setThrowSheet(false); toast.show('Logged'); }} />}
       {limitSheet && <LimitSheet p={p} onClose={() => setLimitSheet(false)} onSaved={() => { setLimitSheet(false); toast.show('Saved'); }} />}
       {levelSheet && <LevelSheet p={p} category={levelSheet} onClose={() => setLevelSheet(null)} onSaved={() => { setLevelSheet(null); toast.show('Saved'); }} />}
-      {delNote && <Confirm title="Remove this note?" text="It comes out of his history and out of any suggestion built on it." danger yesLabel="Remove" onNo={() => setDelNote(null)} onYes={async () => { await db.observations.delete(delNote); setDelNote(null); toast.show('Removed'); }} />}
+      {delNote && <Confirm title="Remove this note?" text="It comes out of his history and out of any suggestion built on it." danger yesLabel="Remove" onNo={() => setDelNote(null)} onYes={async () => { await deleteObservation(delNote); setDelNote(null); toast.show('Removed'); }} />}
       {del && <Confirm title={`Delete ${playerName(p, 'first')}?`} text="His profile, goals, notes and drill versions are removed from this device. Backups keep their copy." danger yesLabel="Delete" onNo={() => setDel(false)} onYes={async () => { await deletePlayer(p.id); nav('/players'); }} />}
       {toast.el}
     </div>

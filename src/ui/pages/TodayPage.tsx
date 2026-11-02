@@ -10,6 +10,7 @@ import { CATEGORY_LABEL, CATEGORIES, today, teamAgeGroup, type Category, type Ob
 import { useToast } from '../components/Sheet';
 import { SmartNoteSheet } from '../components/SmartNote';
 import { TourOffer } from '../components/Tour';
+import { syncNow } from '../../io/sync';
 import { programName } from '../../engine/brand';
 
 /** Today: the next practice, what to remember about kids, one tap to start. */
@@ -70,7 +71,14 @@ export function TodayPage() {
       </div>
       <TourOffer />
 
-      {!team && (
+      {!team && settings.sync?.enabled && settings.sync.role === 'helper' && (
+        <div className="card">
+          <h2>Linked as {settings.sync.name}</h2>
+          <p className="small">Waiting for the team to arrive from {settings.packIdentity?.from ? `${settings.packIdentity.from}'s` : 'the head coach\'s'} phone. It needs a signal on both ends; it finishes on its own the next time this app opens with one.</p>
+          <button className="btn" onClick={async () => { const r = await syncNow(); toast.show(r.error ? `Could not sync: ${r.error}` : r.applied ? 'Here it is' : 'Nothing there yet; try again in a minute'); }}>Check now</button>
+        </div>
+      )}
+      {!team && !(settings.sync?.enabled && settings.sync.role === 'helper') && (
         <div className="card">
           <h2>Start here</h2>
           <p className="muted small">Try the demo team to see how a practice comes together, or set up your own roster. Nothing leaves this phone.</p>

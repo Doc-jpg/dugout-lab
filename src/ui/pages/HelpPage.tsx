@@ -113,9 +113,9 @@ export function HelpPage() {
       <div className="card">
         <h2>Assistant coaches</h2>
         <ul className="step-list small">
-          <li>Settings, Other coaches, "Send a coach pack": pick who it is for, or add a new person. The pack carries his name and has the roster, drills, player versions and the plan, with no family contacts and none of your private notes. He opens it on his phone and taps "Set up this phone as Mark." Nothing to type.</li>
-          <li>He runs his station from the same plan and takes quick notes on his phone. After practice he backs up and sends you the file; you tap "Merge a coach's backup". Notes add up and show who wrote them. If you both edited the same kid, goals, cues and levels are combined, not replaced. Nothing of yours is overwritten.</li>
-          <li>His notes come back tagged with the name you put on the pack, whatever his phone says. Your list shows when each pack went out and when notes came back. iPhone or Android, same app.</li>
+          <li>Settings, Other coaches, "Turn on linked phones" once. Then "+ Invite a coach": his first name and a role. Text him the link; he opens it and taps "Set up this phone as Aaron." Nothing to type, nothing to send, ever.</li>
+          <li>From then on it syncs on its own whenever either phone opens the app with a signal: your roster, goals, cues and plans reach his phone; his notes and quick reads reach yours, tagged with the name on the invite. Goals, cues and levels from both phones combine; nothing is overwritten. Your private notes and the family contacts never leave your phone.</li>
+          <li>Turn off anyone's access from the same list; his phone stops and says why. Coach packs by file remain under "No signal?" for a field that never has one. iPhone or Android, same app.</li>
         </ul>
       </div>
       <div className="card">
