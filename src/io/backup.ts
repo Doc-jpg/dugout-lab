@@ -13,7 +13,7 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import { sha256Hex } from './hash';
 import type { DugoutLabDB } from '../db/db';
 import { db as defaultDb } from '../db/db';
-import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings } from '../engine/types';
+import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings, ParentUpdate } from '../engine/types';
 import { nowIso } from '../engine/types';
 
 export const BACKUP_FORMAT = 'dugout-lab-backup';
@@ -36,12 +36,13 @@ export interface BackupContents {
   practices: Practice[];
   observations: Observation[];
   throwing: ThrowingEntry[];
+  parentUpdates?: ParentUpdate[];
   settings: Settings | null;
 }
 
 export class BackupFormatError extends Error {}
 
-const TABLES = ['teams', 'players', 'drills', 'variants', 'practices', 'observations', 'throwing'] as const;
+const TABLES = ['teams', 'players', 'drills', 'variants', 'practices', 'observations', 'throwing', 'parentUpdates'] as const;
 
 export async function buildBackup(appVersion: string, database: DugoutLabDB = defaultDb): Promise<{ bytes: Uint8Array; fileName: string; manifest: BackupManifest }> {
   const json = (v: unknown) => strToU8(JSON.stringify(v, null, 2));
@@ -78,6 +79,7 @@ export async function readBackup(bytes: Uint8Array): Promise<BackupContents> {
   for (const [name, info] of Object.entries(manifest.files)) {
     const data = entries[name];
     if (!data) throw new BackupFormatError(`${name} is missing from the backup.`);
+    if (!info) continue;
     const h = await sha256Hex(data);
     if (h !== info.sha256) throw new BackupFormatError(`${name} does not match its checksum; the file may be damaged.`);
   }
@@ -91,6 +93,7 @@ export async function readBackup(bytes: Uint8Array): Promise<BackupContents> {
     practices: read('practices.json'),
     observations: read('observations.json'),
     throwing: read('throwing.json'),
+    parentUpdates: entries['parentUpdates.json'] ? read('parentUpdates.json') : [],
     settings: read('settings.json')
   };
 }
@@ -110,7 +113,7 @@ function stamp(r: any): string {
 
 export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'replace', database: DugoutLabDB = defaultDb): Promise<RestoreReport> {
   const report: RestoreReport = { mode, added: {}, updated: {}, unchanged: {}, keptNewerHere: [] };
-  const tables = [database.teams, database.players, database.drills, database.variants, database.practices, database.observations, database.throwing, database.settings];
+  const tables = [database.teams, database.players, database.drills, database.variants, database.practices, database.observations, database.throwing, database.parentUpdates, database.settings];
   await database.transaction('rw', tables, async () => {
     if (mode === 'replace') for (const t of tables) await t.clear();
     for (const t of TABLES) {

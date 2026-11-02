@@ -3,7 +3,7 @@
  * the two never touch each other even when both run in the same browser).
  */
 import Dexie, { type Table } from 'dexie';
-import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings } from '../engine/types';
+import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings, ParentUpdate } from '../engine/types';
 import { DEFAULT_SETTINGS, newId, nowIso } from '../engine/types';
 import { LIBRARY_DRILLS, LIBRARY_VERSION } from '../data/drills';
 
@@ -22,6 +22,7 @@ export class DugoutLabDB extends Dexie {
   throwing!: Table<ThrowingEntry, string>;
   settings!: Table<Settings, string>;
   meta!: Table<Meta, string>;
+  parentUpdates!: Table<ParentUpdate, string>;
 
   constructor(name = 'dugout-lab') {
     super(name);
@@ -35,6 +36,9 @@ export class DugoutLabDB extends Dexie {
       throwing: 'id, playerId, date',
       settings: 'id',
       meta: 'key'
+    });
+    this.version(2).stores({
+      parentUpdates: 'id, playerId, ts'
     });
   }
 }
@@ -184,6 +188,12 @@ export async function addObservation(input: Omit<Observation, 'id' | 'ts'> & { t
   const o: Observation = { id: newId(), ts: nowIso(), ...input };
   await database.observations.put(o);
   return o;
+}
+
+export async function addParentUpdate(input: Omit<ParentUpdate, 'id' | 'ts'>, database: DugoutLabDB = db): Promise<ParentUpdate> {
+  const u: ParentUpdate = { id: newId(), ts: nowIso(), ...input };
+  await database.parentUpdates.put(u);
+  return u;
 }
 
 export async function addThrowing(input: Omit<ThrowingEntry, 'id' | 'createdAt'>, database: DugoutLabDB = db): Promise<ThrowingEntry> {

@@ -10,6 +10,7 @@ import {
 } from '../../engine/types';
 import { READ_LABEL } from './LivePracticePage';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
+import { FamilyPanel } from '../components/FamilyPanel';
 
 /**
  * The living profile. Answers, at the top: what does he need to work on today, what did we do
@@ -26,7 +27,7 @@ export function PlayerPage() {
   const throwing = useThrowing();
   const nav = useNavigate();
   const toast = useToast();
-  const [tab, setTab] = useState<'today' | 'profile' | 'notes' | 'progress'>('today');
+  const [tab, setTab] = useState<'today' | 'profile' | 'notes' | 'progress' | 'family'>(window.location.hash.endsWith('#family') ? 'family' : 'today');
   const [editing, setEditing] = useState(false);
   const [goalSheet, setGoalSheet] = useState(false);
   const [noteSheet, setNoteSheet] = useState(false);
@@ -56,7 +57,7 @@ export function PlayerPage() {
       {flag && flag.status !== 'ok' && <div className="banner warn small" style={{ marginTop: 6 }}>Arm: {flag.message}</div>}
 
       <div className="chips" style={{ margin: '10px 0' }}>
-        {(['today', 'profile', 'notes', 'progress'] as const).map((t) => <button key={t} className={`chip ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{t === 'today' ? 'Today' : t === 'profile' ? 'Profile' : t === 'notes' ? `Notes (${observations.length})` : 'Progress'}</button>)}
+        {(['today', 'profile', 'notes', 'progress', 'family'] as const).map((t) => <button key={t} className={`chip ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{t === 'today' ? 'Today' : t === 'profile' ? 'Profile' : t === 'notes' ? `Notes (${observations.length})` : t === 'progress' ? 'Progress' : 'Family'}</button>)}
       </div>
 
       {tab === 'today' && (
@@ -189,6 +190,8 @@ export function PlayerPage() {
           </div>
         </>
       )}
+
+      {tab === 'family' && <FamilyPanel player={p} />}
 
       {editing && <EditPlayerSheet p={p} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); toast.show('Saved'); }} />}
       {goalSheet && <GoalSheet p={p} onClose={() => setGoalSheet(false)} onSaved={() => { setGoalSheet(false); toast.show('Goal added'); }} />}

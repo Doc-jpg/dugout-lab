@@ -16,7 +16,7 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 - Video reference links and locally stored clips, with no claims of mechanical diagnosis.
 - Richer analytics with honest sample sizes.
 - Multi-coach collaboration (shared backup first, then optional sync with accounts and roles).
-- Parent-facing summaries with explicit access control; never private notes.
+- Parent-facing summaries delivered through a server (a link that stays current) rather than a file; never private notes. Phase 1 already drafts texts, emails, home plans and scorecards from the phone.
 - Sync between devices with conflict review.
 
 ## Housekeeping

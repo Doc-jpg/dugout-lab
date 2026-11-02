@@ -53,6 +53,17 @@ export function HelpPage() {
         </ul>
       </div>
       <div className="card">
+        <h2>Parents</h2>
+        <ul className="step-list small">
+          <li>Player, Family tab: add a parent's mobile or email and choose what the family gets (update and home work, plus a scorecard, or nothing).</li>
+          <li>The update is drafted from your notes: wins first, what we are working on, two or three yard drills with cues and reps, a parent tip. Tap Text or Email, read it, change anything, then send it yourself from Messages or Mail. The app never sends.</li>
+          <li>The scorecard shows his levels and recent notes, and the team as a band per area (lowest, middle, highest, how many assessed). No other kid is named or listed.</li>
+          <li>What stays private: your notes on how he handles frustration, the text of your observations, and anything about teammates.</li>
+          <li>Today, Parent updates: who is due (after a set number of practices), one tap to the draft.</li>
+          <li>Quick notes now include effort and attitude as things you saw: Hustled, Good teammate, Took the cue, Went through the motions.</li>
+        </ul>
+      </div>
+      <div className="card">
         <h2>What it will not do</h2>
         <ul className="step-list small">
           <li>Diagnose a child, assign a label, or rank kids against each other. Notes describe behavior you saw.</li>

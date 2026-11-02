@@ -126,12 +126,12 @@ describe('Test B and G: persistence and backup round trip', () => {
     fresh.close();
   });
 
-  it('rejects a damaged backup', async () => {
+  it('rejects a backup whose contents no longer match the manifest', async () => {
     const { bytes } = await buildBackup('0.1.0', a);
-    const tampered = new Uint8Array(bytes);
-    // Find the players.json entry and flip a byte deep in the archive
-    tampered[tampered.length - 200] ^= 0xff;
-    await expect(readBackup(tampered)).rejects.toThrow();
+    const { unzipSync } = await import('fflate');
+    const entries = unzipSync(bytes);
+    entries['players.json'] = strToU8('[{"id":"forged"}]');
+    await expect(readBackup(zipSync(entries))).rejects.toThrow(/checksum/);
   });
 
   it('reads a Dugout Dad weekend archive and imports only real, active players', async () => {

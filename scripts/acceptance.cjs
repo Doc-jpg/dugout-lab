@@ -131,6 +131,42 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   expect('cue that worked included', /Cue that has worked for him: "Drop step, then find it"/.test(jonah), true);
   await shot(page, '06_player_today');
 
+  // Family: contacts, home plan, drafts, scorecard, due list
+  await page.getByRole('button', { name: 'Family' }).click();
+  await settle();
+  const fam = await body();
+  expect('family contact from demo', /Dana Pike \(mom\)/.test(fam), true);
+  expect('home plan has drills', (await page.locator('.cue').count()) >= 2, true);
+  expect('home plan mentions outfield focus', /Working on:[\s\S]*Outfield/i.test(fam), true);
+  await page.fill('input[placeholder="Loved his energy Saturday."]', 'Loved his energy Saturday.');
+  await page.getByRole('button', { name: 'Text', exact: true }).click();
+  await page.waitForSelector('.sheet');
+  const draft = await page.locator('.sheet pre').innerText();
+  expect('text draft greets the parent', /^Hi Dana, (Coach \w+|coach) here/.test(draft), true);
+  expect('text draft includes the personal line', /Loved his energy Saturday\./.test(draft), true);
+  expect('text draft includes home work', /At home, \d+ min/.test(draft), true);
+  expect('text draft has no private note text', /Froze on the ball|meltdown/.test(draft), false);
+  await page.locator('.sheet-foot >> role=button[name="Copy"]').click().catch(() => {});
+  await page.locator('.sheet-head >> role=button[name="Close"]').click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
+  await page.getByRole('button', { name: 'Email', exact: true }).click();
+  await page.waitForSelector('.sheet');
+  expect('email draft has subject', /Subject: Jonah: quick update/.test(await page.locator('.sheet').innerText()), true);
+  await page.locator('.sheet-head >> role=button[name="Close"]').click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
+  const [popup] = await Promise.all([page.waitForEvent('popup'), page.getByRole('button', { name: 'Scorecard', exact: true }).click()]);
+  await popup.waitForLoadState();
+  const card = await popup.locator('body').innerText();
+  expect('scorecard shows Jonah', /Jonah Pike #2/.test(card), true);
+  expect('scorecard shows a team band, not names', /team \d to \d, middle \d, \d+ assessed/.test(card) && !/Sam|Theo|Ellis/.test(card), true);
+  expect('scorecard says not a ranking', /Nothing here is a ranking/.test(card), true);
+  await popup.close();
+  await shot(page, '09_family');
+  await page.goto(URL + '#/parents');
+  await page.waitForSelector('text=Parent updates');
+  await settle();
+  expect('parents page lists everyone', /Everyone/i.test(await body()), true);
+
   // Test B: modify a ground-ball drill for one player, save, reload, verify
   await page.click('.tabbar >> text=Drills');
   await page.waitForSelector('text=Drills');

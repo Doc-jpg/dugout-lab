@@ -13,6 +13,7 @@ import { DrillPage } from './pages/DrillPage';
 import { ProgressPage } from './pages/ProgressPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { HelpPage } from './pages/HelpPage';
+import { ParentsPage } from './pages/ParentsPage';
 import { requestPersistence, seedLibrary } from '../db/db';
 
 const Icon = {
@@ -52,6 +53,7 @@ export function App() {
           <Route path="/drills/:drillId" element={<DrillPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/parents" element={<ParentsPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>

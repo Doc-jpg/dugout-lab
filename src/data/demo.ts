@@ -37,7 +37,9 @@ export async function loadDemoData(): Promise<{ teamId: string; practiceId: stri
       id: r.id, teamId: DEMO_TEAM_ID, firstName: r.first, lastName: r.last, number: r.num, positions: r.pos, bats: r.bats, throws: r.throws, ageGroup: '12U',
       levels: r.levels, statuses: r.statuses ?? {}, strengths: r.strengths, challenges: r.challenges, cues: r.cues, approaches: r.approaches,
       goals: r.goals.map((g, i) => ({ id: `${r.id}-g${i}`, status: 'active' as const, createdAt: ts, ...g })),
-      confidenceNotes: r.confidence, responseNotes: r.response, otherTeams: r.other, experience: 'Demo'
+      confidenceNotes: r.confidence, responseNotes: r.response, otherTeams: r.other, experience: 'Demo',
+      parents: r.id === 'demo-p02' ? [{ name: 'Dana Pike', relation: 'mom', phone: '555-0102', email: 'dana.pike@example.com', preferred: 'text' }] : r.id === 'demo-p03' ? [{ name: 'Chris Marsh', relation: 'dad', email: 'chris.marsh@example.com', preferred: 'email' }] : undefined,
+      share: r.id === 'demo-p02' ? 'scorecard' : undefined
     });
   }
   // A saved player-specific variant: Ellis gets the stationary, soft-ball version of a ground-ball drill.
@@ -92,8 +94,9 @@ export async function loadDemoData(): Promise<{ teamId: string; practiceId: stri
 export async function removeDemoData(): Promise<number> {
   const ids = ROSTER.map((r) => r.id);
   let n = 0;
-  await db.transaction('rw', [db.teams, db.players, db.variants, db.practices, db.observations, db.throwing, db.settings], async () => {
+  await db.transaction('rw', [db.teams, db.players, db.variants, db.practices, db.observations, db.throwing, db.parentUpdates, db.settings], async () => {
     n += await db.practices.where('teamId').equals(DEMO_TEAM_ID).delete();
+    n += await db.parentUpdates.where('playerId').anyOf(ids).delete();
     n += await db.observations.where('playerId').anyOf(ids).delete();
     n += await db.throwing.where('playerId').anyOf(ids).delete();
     n += await db.variants.where('playerId').anyOf(ids).delete();

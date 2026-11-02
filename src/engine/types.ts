@@ -77,6 +77,14 @@ export const APPROACH_LABEL: Record<CoachingApproach, string> = {
   one_cue: 'One cue at a time', challenge: 'Make it a challenge', quiet_reps: 'Quiet reps, then talk'
 };
 
+export interface ParentContact {
+  name: string;
+  relation?: string;
+  phone?: string;
+  email?: string;
+  preferred?: 'text' | 'email';
+}
+
 export interface Goal {
   id: ID;
   category: Category;
@@ -123,6 +131,10 @@ export interface Player {
   statuses: Partial<Record<Category, SkillStatus>>;
   /** Imported from Dugout Dad: keeps the same id so a later import matches. */
   importedFrom?: 'dugout-dad';
+  /** Parent or guardian contacts for drafts (never auto-sent). */
+  parents?: ParentContact[];
+  /** What the family gets: nothing, a plain summary with home work, or the summary plus the scorecard. */
+  share?: 'none' | 'summary' | 'scorecard';
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -194,6 +206,8 @@ export interface Drill {
   /** Where the idea comes from, in general terms (public coaching knowledge, named principles). */
   attribution?: string;
   tags: string[];
+  /** Coach-added links (a video he trusts, a page) for home work. Never auto-filled. */
+  links?: Array<{ label: string; url: string }>;
   /** Practice style: blocked reps, variable, random/game, decision. Mix matters for retention. */
   style: 'blocked' | 'variable' | 'random' | 'decision' | 'game';
   archived?: boolean;
@@ -295,8 +309,8 @@ export interface Observation {
   id: ID;
   practiceId?: ID;
   playerId: ID;
-  /** Quick read from the field. */
-  read: 'got_it' | 'working' | 'struggled' | 'hesitated' | 'confident' | 'frustrated' | 'reset_worked' | 'note';
+  /** Quick read from the field. Effort and attitude are observed behavior: hustle, teammate, coachable, coasting. */
+  read: 'got_it' | 'working' | 'struggled' | 'hesitated' | 'confident' | 'frustrated' | 'reset_worked' | 'hustle' | 'teammate' | 'coachable' | 'coasting' | 'note';
   category?: Category;
   drillId?: ID;
   text?: string;
@@ -357,6 +371,21 @@ export interface ThrowingEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Parent updates (drafts the coach sends himself)
+// ---------------------------------------------------------------------------
+
+export interface ParentUpdate {
+  id: ID;
+  playerId: ID;
+  ts: ISODateTime;
+  kind: 'update' | 'home_plan' | 'scorecard';
+  channel: 'text' | 'email' | 'file' | 'copy';
+  /** The text as drafted (what the coach saw before sending). */
+  text: string;
+  drillIds: ID[];
+}
+
+// ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
@@ -374,6 +403,10 @@ export interface Settings {
   pitchSmartAge?: number;
   backupReminderPractices: number;
   lastBackupAt?: ISODateTime;
+  /** Parent updates are suggested when a player has had this many practices since his last one. */
+  parentUpdateEveryPractices: number;
+  /** Signature on drafts. */
+  coachSignature?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -383,5 +416,6 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultCoaches: 2,
   defaultEquipment: ['balls', 'tee', 'net', 'bucket', 'cones', 'bases', 'gloves', 'bats', 'helmets', 'l_screen'],
   defaultSpace: 'full',
-  backupReminderPractices: 3
+  backupReminderPractices: 3,
+  parentUpdateEveryPractices: 3
 };

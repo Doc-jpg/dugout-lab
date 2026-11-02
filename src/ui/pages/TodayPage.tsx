@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useCurrentTeam, usePlayers, usePractices, useObservations, useDrills, useSettings, useOnline, fmtDate, fmtTime, useThrowing } from '../hooks';
+import { useCurrentTeam, usePlayers, usePractices, useObservations, useDrills, useSettings, useOnline, fmtDate, fmtTime, useThrowing, useParentUpdates } from '../hooks';
+import { dueForUpdate } from '../../engine/home';
 import { storageHealth, type StorageHealth, playerName, addObservation } from '../../db/db';
 import { loadDemoData } from '../../data/demo';
 import { suggestionsForTeam } from '../../engine/suggestions';
@@ -32,6 +33,8 @@ export function TodayPage() {
   const lastDone = practices.find((p) => p.status === 'done');
   const suggestions = useMemo(() => suggestionsForTeam(players.filter((p) => p.status === 'active'), observations, drills).slice(0, 4), [players, observations, drills]);
   const flags = useMemo(() => (team ? [...throwingFlags(players, throwing, team.ageGroup, today()).entries()].filter(([, f]) => f.status !== 'ok') : []), [team, players, throwing]);
+  const updates = useParentUpdates();
+  const due = useMemo(() => dueForUpdate(players, practices, updates, settings.parentUpdateEveryPractices), [players, practices, updates, settings.parentUpdateEveryPractices]);
   const doneSinceBackup = practices.filter((p) => p.status === 'done' && (!settings.lastBackupAt || p.updatedAt > settings.lastBackupAt)).length;
   const pn = (id: string) => playerName(players.find((p) => p.id === id), 'first');
 
@@ -120,6 +123,7 @@ export function TodayPage() {
           <div className="row wrap" style={{ marginTop: 12 }}>
             <button className="btn" onClick={() => setGameNote(true)}>+ Game note</button>
             <button className="btn" onClick={() => nav('/practices/new')}>+ New practice</button>
+            <button className="btn" onClick={() => nav('/parents')}>Parent updates{due.length ? ` (${due.length} due)` : ''}</button>
           </div>
 
           {lastDone && (
@@ -153,7 +157,7 @@ export function GameNoteSheet({ players, onClose, onSaved, source = 'game', prac
   const [read, setRead] = useState<Observation['read']>('hesitated');
   const [category, setCategory] = useState<Category | ''>('');
   const [text, setText] = useState('');
-  const reads: Array<[Observation['read'], string]> = [['got_it', 'Got it'], ['working', 'Working on it'], ['struggled', 'Struggled'], ['hesitated', 'Hesitated'], ['confident', 'Confident'], ['frustrated', 'Frustrated'], ['reset_worked', 'Reset worked'], ['note', 'Just a note']];
+  const reads: Array<[Observation['read'], string]> = [['got_it', 'Got it'], ['working', 'Working on it'], ['struggled', 'Struggled'], ['hesitated', 'Hesitated'], ['confident', 'Confident'], ['frustrated', 'Frustrated'], ['reset_worked', 'Reset worked'], ['hustle', 'Hustled'], ['teammate', 'Good teammate'], ['coachable', 'Took the cue'], ['coasting', 'Went through the motions'], ['note', 'Just a note']];
   return (
     <Sheet
       title={source === 'game' ? 'Game note' : 'Quick note'}

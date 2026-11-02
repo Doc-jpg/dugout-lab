@@ -2,6 +2,18 @@
 
 Newest first.
 
+## 2026-11-02, family side (Deren: "parents have no idea")
+
+- Parent communication is drafts only: the app builds the text and opens Messages (`sms:` link) or Mail (`mailto:`), or hands over a printable HTML file through the share sheet. Nothing is sent by the app, and every draft is logged (kind, channel, text) so "who is due" works.
+- Scorecards show the player's own levels and recent reads plus the team as a band per area (low, middle, high, count assessed). Deren asked for "everyone else, redacted"; on a 12-kid roster a redacted list is still identifiable, so bands replaced rows. Same information about where he stands, no way to pin it on a teammate.
+- What never goes to a parent: `responseNotes`, `confidenceNotes`, raw observation text, anything about other players. Drafts use counts and categories only. Tone: wins first, "what we are working on", never "correction" or "punishment".
+- Home plans pick two or three yard-sized drills (space tight or half, one adult at most, two players at most, home gear only, no high throwing load) from active technical goals, then rough-note categories, then the lowest assessed area. A saved player version wins; goal words are matched against drill names and tags so "drop step" finds the drop-step drill.
+- Effort and attitude are observed behaviors in the quick-note chips (Hustled, Good teammate, Took the cue, Went through the motions), not ratings.
+- Family opt-out is a per-player setting (`share: 'none'`) and the due list respects it.
+- Multi-coach live sync stays Phase 3: the data model already merges by record (backup merge), which is the hard part; the server, accounts and roles are the remaining work. Decision: ship to one coach first, build sync only if two or more adopt it.
+- Tests: 30 vitest; browser walkthrough extended with the family flow (contact, home plan, text and email drafts without private note text, scorecard popup with band and no teammate names, parents page).
+
+
 ## 2026-11-02, Phase 1 build
 
 - Built as a separate PWA next to Dugout Dad, same stack, own repository and Pages path, own IndexedDB name, own icon. Roster sharing is an explicit file import from a Dugout Dad weekend archive, never a direct read of the other app's database (home-screen apps on iOS cannot see each other's storage anyway).

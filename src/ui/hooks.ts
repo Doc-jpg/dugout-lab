@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getSettings } from '../db/db';
-import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings } from '../engine/types';
+import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings, ParentUpdate } from '../engine/types';
 import { DEFAULT_SETTINGS } from '../engine/types';
 import type { GeneratorContext } from '../engine/generator';
 
@@ -64,6 +64,13 @@ export function usePractice(id?: string): Practice | undefined {
 export function useObservations(playerId?: string): Observation[] {
   return useLiveQuery(async () => {
     const rows = playerId ? await db.observations.where('playerId').equals(playerId).toArray() : await db.observations.toArray();
+    return rows.sort((a, b) => b.ts.localeCompare(a.ts));
+  }, [playerId], []) ?? [];
+}
+
+export function useParentUpdates(playerId?: string): ParentUpdate[] {
+  return useLiveQuery(async () => {
+    const rows = playerId ? await db.parentUpdates.where('playerId').equals(playerId).toArray() : await db.parentUpdates.toArray();
     return rows.sort((a, b) => b.ts.localeCompare(a.ts));
   }, [playerId], []) ?? [];
 }

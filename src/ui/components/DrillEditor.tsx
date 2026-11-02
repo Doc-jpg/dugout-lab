@@ -19,12 +19,13 @@ export function DrillEditor({ title, initial, onClose, onSave }: { title: string
   const [steps, setSteps] = useState((initial?.steps ?? []).join('\n'));
   const [cues, setCues] = useState((initial?.cues ?? []).join('\n'));
   const [tags, setTags] = useState((initial?.tags ?? []).join(', '));
+  const [links, setLinks] = useState((initial?.links ?? []).map((l) => `${l.label} ${l.url}`).join('\n'));
   const set = (k: keyof DrillDraft, v: any) => setD({ ...d, [k]: v });
   const toggle = <T,>(arr: T[], v: T) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
   const ok = d.name.trim() && d.objective.trim() && lines(steps).length > 0;
   return (
-    <Sheet title={title} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!ok} onClick={() => onSave({ ...d, steps: lines(steps), cues: lines(cues), tags: tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean) })}>Save</button></>}>
+    <Sheet title={title} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!ok} onClick={() => onSave({ ...d, steps: lines(steps), cues: lines(cues), tags: tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean), links: lines(links).map((l) => { const m = /^(.*?)\s*(https?:\/\/\S+)$/.exec(l); return m ? { label: m[1].trim() || 'Video', url: m[2] } : { label: l, url: l }; }).filter((l) => /^https?:/.test(l.url)) })}>Save</button></>}>
       <div className="field"><label>Name</label><input className="input" value={d.name} onChange={(e) => set('name', e.target.value)} /></div>
       <div className="field"><label>Area</label><div className="chips">{CATEGORIES.map((c) => <button key={c} className={`chip sm ${d.category === c ? 'on' : ''}`} onClick={() => set('category', c)}>{CATEGORY_LABEL[c]}</button>)}</div></div>
       <div className="field"><label>Also works on</label><div className="chips">{CATEGORIES.filter((c) => c !== d.category).map((c) => <button key={c} className={`chip sm ${d.also?.includes(c) ? 'on' : ''}`} onClick={() => set('also', toggle<Category>(d.also ?? [], c))}>{CATEGORY_LABEL[c]}</button>)}</div></div>
@@ -53,6 +54,7 @@ export function DrillEditor({ title, initial, onClose, onSave }: { title: string
       <div className="field"><label>Throwing load</label><div className="chips">{(['none', 'light', 'moderate', 'high'] as ThrowingLoad[]).map((t) => <button key={t} className={`chip sm ${d.throwingLoad === t ? 'on' : ''}`} onClick={() => set('throwingLoad', t)}>{t}</button>)}</div></div>
       <div className="field"><label>Practice style</label><div className="chips">{(['blocked', 'variable', 'random', 'decision', 'game'] as Drill['style'][]).map((s) => <button key={s} className={`chip sm ${d.style === s ? 'on' : ''}`} onClick={() => set('style', s)}>{s}</button>)}</div><div className="muted small">Blocked = same rep over and over. Variable = same skill, changing conditions. Random = mixed skills. Decision = a read before the action. Game = competition.</div></div>
       <div className="field"><label>Tags (comma separated)</label><input className="input" value={tags} onChange={(e) => setTags(e.target.value)} /></div>
+      <div className="field"><label>Links for home work (one per line: a label then the web address)</label><textarea className="input" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={'Drop step demo https://www.youtube.com/watch?v=...'} /><div className="muted small">Only links you add yourself go to parents.</div></div>
       <div className="field"><label>Where the idea comes from (optional)</label><input className="input" value={d.attribution ?? ''} onChange={(e) => set('attribution', e.target.value || undefined)} /></div>
     </Sheet>
   );

@@ -165,7 +165,8 @@ export function LivePracticePage() {
 }
 
 export const READ_LABEL: Record<Observation['read'], string> = {
-  got_it: 'Got it', working: 'Working on it', struggled: 'Struggled', hesitated: 'Hesitated', confident: 'Confident', frustrated: 'Frustrated', reset_worked: 'Reset worked', note: 'Note'
+  got_it: 'Got it', working: 'Working on it', struggled: 'Struggled', hesitated: 'Hesitated', confident: 'Confident', frustrated: 'Frustrated', reset_worked: 'Reset worked',
+  hustle: 'Hustled', teammate: 'Good teammate', coachable: 'Took the cue', coasting: 'Went through the motions', note: 'Note'
 };
 
 function QuickText({ onSave }: { onSave: (t: string) => void }) {
