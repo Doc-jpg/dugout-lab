@@ -6,6 +6,8 @@ import { CATEGORIES, CATEGORY_LABEL, BLOCK_LABEL, type Category, type BlockKind,
 import { DrillEditor } from '../components/DrillEditor';
 import { useToast } from '../components/Sheet';
 
+const STYLE_WORD: Record<string, string> = { blocked: 'reps', variable: 'mixed reps', random: 'game-speed mix', decision: 'make a read', game: 'competition' };
+
 export function DrillsPage() {
   const drills = useDrills();
   const variants = useVariants();
@@ -40,7 +42,7 @@ export function DrillsPage() {
           <Link key={d.id} to={`/drills/${d.id}`} className="item tappable">
             <div className="grow">
               <div className="title">{d.name}{d.source === 'custom' ? <span className="pill" style={{ marginLeft: 6 }}>mine</span> : null}{variantCount(d.id) ? <span className="pill" style={{ marginLeft: 6 }}>{variantCount(d.id)} version{variantCount(d.id) > 1 ? 's' : ''}</span> : null}</div>
-              <div className="sub">{CATEGORY_LABEL[d.category]} · L{d.levelMin}-{d.levelMax} · {d.minutes} min · {d.style}{d.decisionHook ? ' · decision' : ''}{d.mentalHook ? ' · mental hook' : ''}</div>
+              <div className="sub">{CATEGORY_LABEL[d.category]} · levels {d.levelMin} to {d.levelMax} · {d.minutes} min · {STYLE_WORD[d.style]}{d.decisionHook ? ' · decision' : ''}{d.mentalHook ? ' · mental hook' : ''}</div>
             </div>
             <span className="chev">›</span>
           </Link>

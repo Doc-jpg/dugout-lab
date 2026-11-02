@@ -243,14 +243,24 @@ function EditPlayerSheet({ p, onClose, onSaved }: { p: Player; onClose: () => vo
       </div>
       <div className="field"><label>Positions</label><div className="chips">{POSITIONS.map((pos) => <button key={pos} className={`chip sm ${f.positions.includes(pos) ? 'on' : ''}`} onClick={() => set('positions', toggle<Position>(f.positions, pos))}>{pos}</button>)}</div></div>
       <div className="field"><label>Experience</label><input className="input" value={f.experience} onChange={(e) => set('experience', e.target.value)} placeholder="2nd year travel ball" /></div>
-      <div className="field"><label>Strengths (one per line)</label><textarea className="input" value={f.strengths} onChange={(e) => set('strengths', e.target.value)} /></div>
-      <div className="field"><label>Current challenges (one per line)</label><textarea className="input" value={f.challenges} onChange={(e) => set('challenges', e.target.value)} /></div>
-      <div className="field"><label>Cues that work (one per line, best first)</label><textarea className="input" value={f.cues} onChange={(e) => set('cues', e.target.value)} /></div>
-      <div className="field"><label>Takes coaching best with</label><div className="chips">{(Object.keys(APPROACH_LABEL) as CoachingApproach[]).map((a) => <button key={a} className={`chip sm ${f.approaches.includes(a) ? 'on' : ''}`} onClick={() => set('approaches', toggle<CoachingApproach>(f.approaches, a))}>{APPROACH_LABEL[a]}</button>)}</div><div className="muted small">What has worked so far, not a type he is stuck with.</div></div>
-      <div className="field"><label>What builds him up</label><textarea className="input" value={f.confidenceNotes} onChange={(e) => set('confidenceNotes', e.target.value)} placeholder="Praise the take, not just the hit." /></div>
-      <div className="field"><label>How he responds to frustration, pressure, mistakes (what you see)</label><textarea className="input" value={f.responseNotes} onChange={(e) => set('responseNotes', e.target.value)} /></div>
-      <div className="field"><label>In his own words (optional)</label><textarea className="input" value={f.selfReflection} onChange={(e) => set('selfReflection', e.target.value)} placeholder="What he says he wants to get better at" /></div>
-      <div className="field"><label>Other teams he throws for</label><input className="input" value={f.otherTeams} onChange={(e) => set('otherTeams', e.target.value)} placeholder="School team" /></div>
+      <details open={!!(p.strengths.length || p.challenges.length || p.cues.length)} style={{ marginBottom: 10 }}>
+        <summary style={{ fontWeight: 700, cursor: 'pointer' }}>Coaching notes (what works for him)</summary>
+        <div style={{ marginTop: 8 }}>
+          <div className="field"><label>Strengths (one per line)</label><textarea className="input" value={f.strengths} onChange={(e) => set('strengths', e.target.value)} /></div>
+          <div className="field"><label>Current challenges (one per line)</label><textarea className="input" value={f.challenges} onChange={(e) => set('challenges', e.target.value)} /></div>
+          <div className="field"><label>Cues that work (one per line, best first)</label><textarea className="input" value={f.cues} onChange={(e) => set('cues', e.target.value)} /></div>
+          <div className="field"><label>What builds him up</label><textarea className="input" value={f.confidenceNotes} onChange={(e) => set('confidenceNotes', e.target.value)} placeholder="Praise the take, not just the hit." /></div>
+        </div>
+      </details>
+      <details style={{ marginBottom: 10 }}>
+        <summary style={{ fontWeight: 700, cursor: 'pointer' }}>More (how he takes coaching, pressure, his own words, other teams)</summary>
+        <div style={{ marginTop: 8 }}>
+          <div className="field"><label>Takes coaching best with</label><div className="chips">{(Object.keys(APPROACH_LABEL) as CoachingApproach[]).map((a) => <button key={a} className={`chip sm ${f.approaches.includes(a) ? 'on' : ''}`} onClick={() => set('approaches', toggle<CoachingApproach>(f.approaches, a))}>{APPROACH_LABEL[a]}</button>)}</div><div className="muted small">What has worked so far, not a type he is stuck with.</div></div>
+          <div className="field"><label>How he responds to frustration, pressure, mistakes (what you see)</label><textarea className="input" value={f.responseNotes} onChange={(e) => set('responseNotes', e.target.value)} /></div>
+          <div className="field"><label>In his own words (optional)</label><textarea className="input" value={f.selfReflection} onChange={(e) => set('selfReflection', e.target.value)} placeholder="What he says he wants to get better at" /></div>
+          <div className="field"><label>Other teams he throws for</label><input className="input" value={f.otherTeams} onChange={(e) => set('otherTeams', e.target.value)} placeholder="School team" /></div>
+        </div>
+      </details>
     </Sheet>
   );
 }

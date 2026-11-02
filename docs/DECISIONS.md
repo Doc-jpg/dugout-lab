@@ -2,6 +2,16 @@
 
 Newest first.
 
+## 2026-11-02, simplicity pass (Deren: depth with ease of use for non-technical coaches)
+
+- Wrote docs/DESIGN_PRINCIPLES.md (two taps during practice, one screen before, depth behind a fold, parent words, nothing required to start, defaults do the work, say why).
+- First run is a three-step setup page (team and class year or age group, paste roster, generate) instead of Settings. Demo stays one tap away.
+- New practice has Quick start at the top: the usual setup, one Generate button; the full form sits below.
+- Live quick note: four big buttons, the other seven reads under "More".
+- Player edit: basics, then "Coaching notes" and "More" folded.
+- Jargon removed from lists (levels written out, style words in plain English), legend under the progress grid.
+
+
 ## 2026-11-02, age groups (Deren: "why only even numbers?")
 
 - Age groups are 6U to 18U one per year, plus HS. Pitch Smart brackets and drill age gates derive from the number (`ageOf`); old "16U+" values still parse.

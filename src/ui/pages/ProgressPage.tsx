@@ -34,6 +34,7 @@ export function ProgressPage() {
           ))}
         </div>
         <div className="muted small" style={{ marginTop: 6 }}>1 introducing · 2 building · 3 steady · 4 reliable · 5 game-ready · ! due for review</div>
+        <div className="muted small">Columns: {CATEGORIES.map((c) => `${short(c)} = ${CATEGORY_LABEL[c]}`).join(', ')}</div>
       </div>
 
       {dueReview.length > 0 && (

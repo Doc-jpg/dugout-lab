@@ -14,6 +14,7 @@ import { ProgressPage } from './pages/ProgressPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { HelpPage } from './pages/HelpPage';
 import { ParentsPage } from './pages/ParentsPage';
+import { SetupPage } from './pages/SetupPage';
 import { requestPersistence, seedLibrary } from '../db/db';
 import { useCurrentTeam } from './hooks';
 import { brandCss } from '../engine/brand';
@@ -66,6 +67,7 @@ export function App() {
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/parents" element={<ParentsPage />} />
+          <Route path="/setup" element={<SetupPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>

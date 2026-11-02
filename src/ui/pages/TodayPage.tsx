@@ -72,9 +72,9 @@ export function TodayPage() {
           <h2>Start here</h2>
           <p className="muted small">Try the demo team to see how a practice comes together, or set up your own roster. Nothing leaves this phone.</p>
           <div className="col">
-            <button className="btn primary big-btn" onClick={loadDemo} disabled={busy}>{busy ? 'Loading…' : 'Load the demo team'}</button>
-            <button className="btn" onClick={() => nav('/settings')}>Set up my team</button>
-            <button className="btn" onClick={() => nav('/settings#dugout-dad')}>Import roster from Dugout Dad</button>
+            <button className="btn primary big-btn" onClick={() => nav('/setup')}>Set up my team (2 minutes)</button>
+            <button className="btn" onClick={loadDemo} disabled={busy}>{busy ? 'Loading…' : 'Try the demo team first'}</button>
+            <button className="btn ghost" onClick={() => nav('/settings#dugout-dad')}>Import roster from Dugout Dad</button>
           </div>
         </div>
       )}

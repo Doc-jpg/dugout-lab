@@ -8,6 +8,8 @@ import { StationCard } from '../components/StationCard';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 
 /** The plan: blocks, stations, groups, every player's objective. Change anything; regenerate one station; one-tap adjustments. */
+const STYLE_WORD: Record<string, string> = { blocked: 'reps', variable: 'mixed reps', random: 'game-speed mix', decision: 'make a read', game: 'competition' };
+
 export function PracticePlanPage() {
   const { practiceId = '' } = useParams();
   const practice = usePractice(practiceId);
@@ -214,7 +216,7 @@ function EditStationSheet({ practice, block, station, drills, onClose, onPick, o
           <div className="list">
             {pool.slice(0, 40).map((d) => (
               <button key={d.id} className="item tappable" style={{ textAlign: 'left' }} onClick={() => onPick(d.id)}>
-                <div className="grow"><div className="title">{d.name}{used.has(d.id) ? <span className="pill" style={{ marginLeft: 6 }}>in this plan</span> : null}</div><div className="sub">{CATEGORY_LABEL[d.category]} · L{d.levelMin}-{d.levelMax} · {d.minutes} min · {d.style}</div></div>
+                <div className="grow"><div className="title">{d.name}{used.has(d.id) ? <span className="pill" style={{ marginLeft: 6 }}>in this plan</span> : null}</div><div className="sub">{CATEGORY_LABEL[d.category]} · levels {d.levelMin} to {d.levelMax} · {d.minutes} min · {STYLE_WORD[d.style]}</div></div>
               </button>
             ))}
           </div>

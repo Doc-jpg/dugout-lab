@@ -10,7 +10,7 @@ function expect(label, got, want) { if (JSON.stringify(got) !== JSON.stringify(w
   const page = await ctx.newPage();
   page.on('pageerror', (e) => { console.log('PAGEERROR', e.message); fails.push('pageerror ' + e.message); });
   await page.goto(URL); await page.waitForSelector('text=Start here');
-  await page.click('role=button[name="Load the demo team"]'); await page.waitForURL(/\/practices\//, { timeout: 60000 });
+  await page.click('role=button[name="Try the demo team first"]'); await page.waitForURL(/\/practices\//, { timeout: 60000 });
   await page.goto(URL + '#/today'); await page.waitForSelector('h1');
   expect('demo brand name in header', await page.locator('h1').first().innerText(), 'Dirtbags Baseball DEMO (fictional)');
   const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());

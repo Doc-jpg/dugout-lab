@@ -18,10 +18,29 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   const settle = (ms = 350) => page.waitForTimeout(ms);
   const body = () => page.locator('body').innerText();
 
-  // Fresh start: demo team
+  // Fresh start: the three-step setup a new coach walks, then switch to the demo team for the rest
   await page.goto(URL);
   await page.waitForSelector('text=Start here');
-  await page.click('role=button[name="Load the demo team"]');
+  await page.click('role=button[name="Set up my team (2 minutes)"]');
+  await page.waitForSelector('text=Step 1 of 3');
+  await page.fill('input[placeholder="Rattlers"]', 'Setup Test Team');
+  await page.fill('input[placeholder="Deren"]', 'Deren');
+  await page.getByRole('button', { name: /^\d{4} \(13U\)$/ }).click();
+  await page.click('role=button[name="Next: the roster"]');
+  await page.waitForSelector('text=Step 2 of 3');
+  await page.fill('textarea', '1 Eli Test\n24 Hudson Test\n4 AJ Test');
+  await page.click('role=button[name="Next: first practice"]');
+  await page.waitForSelector('text=You are set');
+  await page.click('role=button[name="Generate the first practice"]');
+  await page.waitForSelector('text=Quick start');
+  expect('quick start shows the three kids', /3 of 3 here/.test(await body()), true);
+  await page.locator('.card').first().getByRole('button', { name: 'Generate practice' }).click();
+  await page.waitForURL(/\/practices\/[^/]+$/);
+  await settle(400);
+  expect('first practice generated from quick start', /Why this plan/.test(await body()), true);
+  await page.goto(URL + '#/settings');
+  await page.waitForSelector('text=Demo team');
+  await page.click('role=button[name="Load demo team"]');
   await page.waitForURL(/\/practices\//, { timeout: 60000 });
   await settle();
   expect('demo plan opened', /Why this plan/.test(await body()), true);
@@ -223,7 +242,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await p2.locator('.sheet').getByRole('button', { name: /Merge into this device/ }).click();
   await p2.waitForSelector('text=Done (merge)');
   const rep = await p2.locator('.banner.info').innerText();
-  expect('restore added players', /12 players/.test(rep), true);
+  expect('restore added players', /1[2-9] players/.test(rep), true);
   expect('restore added variants', /variants/.test(rep), true);
   expect('restore added practices', /practices/.test(rep), true);
   await p2.locator('.sheet').getByRole('button', { name: 'Done' }).click();

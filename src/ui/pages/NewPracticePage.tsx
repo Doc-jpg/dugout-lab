@@ -92,6 +92,13 @@ export function NewPracticePage() {
       </div>
       <h1>New practice</h1>
 
+      <div className="card" style={{ borderLeft: '4px solid var(--accent)' }}>
+        <div className="section-title" style={{ marginTop: 0 }}><h3>Quick start</h3><span className="muted small">your usual setup</span></div>
+        <div className="small" style={{ marginBottom: 8 }}>{present} of {active.length} here · {duration} min · {coaches} coach{coaches === 1 ? '' : 'es'} · {indoor ? 'indoors' : 'outside'}{noThrow.size ? ` · ${noThrow.size} resting an arm` : ''}</div>
+        <button className="btn primary big-btn block" onClick={generate} disabled={busy || present === 0}>{busy ? 'Building…' : 'Generate practice'}</button>
+        <div className="muted small" style={{ marginTop: 6 }}>Change anything below first if today is different: who is out, how long, the gear, where.</div>
+      </div>
+
       <div className="card">
         <div className="inline-fields">
           <div className="field"><label>Date</label><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>

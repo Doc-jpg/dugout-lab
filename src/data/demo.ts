@@ -2,7 +2,7 @@
  * Demo data: a fictional team so the coach can try everything before adding real kids.
  * Every demo record carries DEMO_TAG and is removed in one tap. No real children.
  */
-import { db, createTeam, createPlayer, saveVariant, addObservation, addThrowing, savePractice, saveSettings, getSettings } from '../db/db';
+import { db, createTeam, createPlayer, saveVariant, addObservation, addThrowing, savePractice, saveSettings } from '../db/db';
 import { generatePractice } from '../engine/generator';
 import type { Category, Level, Player, SkillStatus } from '../engine/types';
 import { nowIso, today } from '../engine/types';
@@ -65,8 +65,8 @@ export async function loadDemoData(): Promise<{ teamId: string; practiceId: stri
     await addThrowing({ playerId: 'demo-p05', date: today(), pitches: 62, kind: 'game', source: 'manual', note: 'Demo: yesterday\'s game' });
     await addThrowing({ playerId: 'demo-p10', date: today(), pitches: null, kind: 'other_team', source: 'manual', note: 'Demo: threw for his school team, count unknown' });
   }
-  const settings = await getSettings();
-  if (!settings.teamId) await saveSettings({ teamId: DEMO_TEAM_ID });
+  // Loading the demo switches to it; removing it switches back to the coach's own team.
+  const settings = await saveSettings({ teamId: DEMO_TEAM_ID });
   // One finished practice from last week, one planned for today.
   let practiceId = (await db.practices.where('teamId').equals(DEMO_TEAM_ID).toArray()).find((p) => p.status === 'planned')?.id;
   if (!practiceId) {
@@ -107,7 +107,7 @@ export async function removeDemoData(): Promise<number> {
     n += await db.players.where('teamId').equals(DEMO_TEAM_ID).delete();
     n += await db.teams.where('id').equals(DEMO_TEAM_ID).delete();
     const s = await db.settings.get('settings');
-    if (s?.teamId === DEMO_TEAM_ID) await db.settings.update('settings', { teamId: undefined });
+    if (s?.teamId === DEMO_TEAM_ID) await db.settings.update('settings', { teamId: (await db.teams.toArray())[0]?.id });
   });
   return n;
 }

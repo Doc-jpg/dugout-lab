@@ -38,6 +38,10 @@ Personalized youth baseball practice planning and player development. Private, o
 - Locally: `npm install`, `npm run build`, `node server.cjs`, open http://localhost:4174 (port 4174 so it never collides with Dugout Dad on 4173).
 - Tests: `npm test` (engine, generator, suggestions, Pitch Smart, backup, Dugout Dad import). Browser walkthrough: `URL=http://localhost:4174/ node scripts/acceptance.cjs` (Playwright, iPhone 13 profile; runs acceptance tests A through G as far as a desktop browser can).
 
+## Principles
+
+See docs/DESIGN_PRINCIPLES.md. Short version: two taps during practice, one screen before it, depth behind a fold, words a parent uses, nothing required to start.
+
 ## Layout
 
 - `src/engine/` types, practice generator, suggestions, Pitch Smart

@@ -143,9 +143,15 @@ export function LivePracticePage() {
       {note && (
         <Sheet title={`${playerName(players.get(note.playerId), 'short')}: what did you see?`} onClose={() => setNote(null)}>
           <div className="small muted" style={{ marginBottom: 8 }}>{station.objectives.find((o) => o.playerId === note.playerId)?.technical}</div>
-          <div className="chips read-chips">
-            {(Object.keys(READ_LABEL) as Observation['read'][]).filter((r) => r !== 'note').map((r) => <button key={r} className="chip" onClick={() => quick(note.playerId, r)}>{READ_LABEL[r]}</button>)}
+          <div className="btn-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {(['got_it', 'working', 'struggled', 'hesitated'] as Observation['read'][]).map((r) => <button key={r} className="btn" onClick={() => quick(note.playerId, r)}>{READ_LABEL[r]}</button>)}
           </div>
+          <details style={{ marginTop: 10 }}>
+            <summary className="muted small">More: confidence, effort, attitude</summary>
+            <div className="chips read-chips" style={{ marginTop: 8 }}>
+              {(['confident', 'frustrated', 'reset_worked', 'hustle', 'teammate', 'coachable', 'coasting'] as Observation['read'][]).map((r) => <button key={r} className="chip" onClick={() => quick(note.playerId, r)}>{READ_LABEL[r]}</button>)}
+            </div>
+          </details>
           <QuickText onSave={(t) => quick(note.playerId, 'note', t)} />
         </Sheet>
       )}
