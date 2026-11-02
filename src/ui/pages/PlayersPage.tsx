@@ -40,7 +40,7 @@ export function PlayersPage() {
         <button className="btn primary" onClick={() => setAdd(true)} disabled={!team}>+ Add</button>
       </div>
       {!team && <div className="empty">Set up a team first (Today, Set up my team).</div>}
-      <div className="list">
+      <div className="list" data-tour="roster">
         {active.map((p) => {
           const goals = p.goals.filter((g) => g.status === 'active');
           const last = observations.find((o) => o.playerId === p.id);

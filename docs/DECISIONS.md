@@ -85,3 +85,11 @@ Deliberately unchanged:
 - Quick-note vocabulary stays at four big buttons plus More. Adding reads is cheap; adding buttons is not.
 
 Rollback: branch `rollback/pre-audit-2026-11-02` (commit 31b9880). Restore by pointing main at it; the IndexedDB schema did not change in this pass, so old data opens.
+
+## 2026-11-02, tour, FAQ and freestyle notes
+
+- Deren asked for a tour he can revisit, an FAQ, and notes by voice or free text that land on the right kid without a long form. "Everybody has their own preferences": the note sheet now takes a note three ways (tap, say, type) and the same sheet serves Today, live practice and the player page.
+- Name matching is rules over the roster the coach is looking at (present kids in live mode, active roster elsewhere): exact first or last name, number ("number 7", "#7"), nicknames the coach added, then typo and speech slips (prefix, one edit, a rough sound key). Shared first names drop to a "Maybe" and offer the other kid; the full name or the number settles it. A confidence word ("Sounds like", "Maybe", "Could be") is always shown so nothing files silently on the wrong kid. Reads and areas come from keyword lists; the coach can override every piece and the override sticks while he keeps typing.
+- Speech uses the browser's recognition (Safari and Chrome send audio to Apple or Google), so it needs a signal and the mic permission. With neither, the keyboard mic still dictates into the same box, which the FAQ says. Stored audio clips stay on the roadmap.
+- Tour: nine stops on the real screens with the real element lit, offered once on Today, from the last setup step, and from Help any time. It navigates to the latest open practice for the plan stops and falls back to the list.
+- Tests: tests/notes.test.ts (7) and new acceptance checks (typed note guessing who, read and area; a slip marked as a maybe; nine tour stops; FAQ search). 90 unit tests, 63 browser checks.

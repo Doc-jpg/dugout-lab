@@ -139,6 +139,47 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   expect('today shows last practice', /Last practice/.test(await body()), true);
   expect('today shows reminder', /Suggestion/.test(await body()), true);
 
+  // Freestyle note: typed sentence -> who, what, area guessed; coach confirms
+  await page.getByRole('button', { name: '+ Note', exact: true }).click();
+  await page.waitForSelector('.sheet');
+  await page.locator('.sheet textarea').fill('Theo struggled on fly balls today');
+  await settle(300);
+  const sheetText = await page.locator('.sheet').innerText();
+  expect('note guessed the kid', /Sounds like Theo/.test(sheetText), true);
+  expect('note guessed the read', (await page.locator('.sheet .read-chips .chip.on').innerText()), 'Struggled');
+  expect('note guessed the area', /Area: Outfield defense/.test(sheetText), true);
+  await page.getByRole('button', { name: /^Save for Theo/ }).click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
+  expect('note saved toast', /Note saved for Theo/.test(await body()), true);
+  // Same box with a shared first name asks instead of guessing (demo has one Owen, so use a slip instead)
+  await page.getByRole('button', { name: '+ Note', exact: true }).click();
+  await page.waitForSelector('.sheet');
+  await page.locator('.sheet textarea').fill('Jona froze on the relay');
+  await settle(300);
+  expect('speech slip still finds him, marked as a maybe', /Maybe Jonah/.test(await page.locator('.sheet').innerText()), true);
+  await page.locator('.sheet-head >> role=button[name="Close"]').click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
+
+  // Guided tour: nine stops on the real screens, then it stops offering itself
+  expect('tour offered on Today', /New here\?/.test(await body()), true);
+  await page.getByRole('button', { name: 'Take the tour' }).click();
+  let stops = 0;
+  for (let i = 0; i < 9; i++) {
+    await settle(500);
+    if ((await page.locator('.tour-card').count()) === 0) break;
+    stops += 1;
+    await page.locator('.tour-card >> role=button[name=/Next|Done, let/]').click();
+  }
+  await settle(400);
+  expect('tour has nine stops', stops, 9);
+  expect('tour ends on Today without the offer', /\/today$/.test(page.url()) && !/New here\?/.test(await body()), true);
+  await page.goto(URL + '#/help');
+  await page.waitForSelector('text=Questions coaches ask');
+  await page.fill('input[aria-label="Search the questions"]', 'parents');
+  await settle(200);
+  expect('faq search finds the parents answer', (await page.locator('details.faq').count()) >= 1 && /What do parents see/.test(await body()), true);
+  expect('help offers the tour again', (await page.getByRole('button', { name: 'Take the tour' }).count()), 1);
+
   // Test E: player page for Jonah shows the labeled suggestion with a drill
   await page.click('.tabbar >> text=Players');
   await page.waitForSelector('text=Jonah');
@@ -277,7 +318,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await page.waitForSelector('.sheet');
   await page.locator('.sheet').getByRole('button', { name: 'Got it' }).click();
   await page.fill('.sheet textarea', 'Offline note: drop step was on time');
-  await page.locator('.sheet-foot >> role=button[name="Save"]').click();
+  await page.locator('.sheet-foot >> role=button[name=/^Save/]').click();
   await page.waitForSelector('.sheet', { state: 'detached' });
   await page.reload();
   await page.waitForSelector('text=Try next');

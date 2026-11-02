@@ -6,7 +6,8 @@ import { regenerateStation, adjustPractice, setStationProgression } from '../../
 import { nowIso, type Practice, type Observation, type Category } from '../../engine/types';
 import { StationCard } from '../components/StationCard';
 import { Sheet, useToast } from '../components/Sheet';
-import { GameNoteSheet } from './TodayPage';
+import { SmartNoteSheet, TalkBox, READ_LABEL } from '../components/SmartNote';
+export { READ_LABEL };
 
 /**
  * Live practice: one hand, on the field. Current block and rotation, a big timer, the station
@@ -105,7 +106,7 @@ export function LivePracticePage() {
         <button className="btn ghost sm" onClick={() => nav(`/practices/${practice.id}`)}>‹ Plan</button>
         <div className="row">
           {!online && <span className="pill">Offline, saving on phone</span>}
-          <button className="btn" onClick={() => setFreeNote(true)}>+ Note</button>
+          <button className="btn" data-tour="live-note" onClick={() => setFreeNote(true)}>+ Note</button>
           <button className="btn" onClick={() => nav(`/practices/${practice.id}/recap`)}>Finish</button>
         </div>
       </div>
@@ -156,7 +157,7 @@ export function LivePracticePage() {
           <QuickText onSave={(t) => quick(note.playerId, 'note', t)} />
         </Sheet>
       )}
-      {freeNote && <GameNoteSheet players={[...players.values()]} source="practice" practiceId={practice.id} onClose={() => setFreeNote(false)} onSaved={() => { setFreeNote(false); toast.show('Saved'); }} />}
+      {freeNote && <SmartNoteSheet players={hereIds.map((id) => players.get(id)!).filter(Boolean)} title="Note: say it or type it" source="practice" practiceId={practice.id} onClose={() => setFreeNote(false)} onSaved={(pid) => { setFreeNote(false); toast.show(`Saved for ${playerName(players.get(pid), 'first')}`); }} />}
       {swap && (
         <Sheet title="Fix this station" onClose={() => setSwap(false)}>
           <div className="col">
@@ -171,17 +172,12 @@ export function LivePracticePage() {
   );
 }
 
-export const READ_LABEL: Record<Observation['read'], string> = {
-  got_it: 'Got it', working: 'Working on it', struggled: 'Struggled', hesitated: 'Hesitated', confident: 'Confident', frustrated: 'Frustrated', reset_worked: 'Reset worked',
-  hustle: 'Hustled', teammate: 'Good teammate', coachable: 'Took the cue', coasting: 'Went through the motions', note: 'Note'
-};
-
 function QuickText({ onSave }: { onSave: (t: string) => void }) {
   const [t, setT] = useState('');
   return (
-    <div className="row" style={{ marginTop: 10 }}>
-      <input className="input grow" placeholder="Or type a few words" value={t} onChange={(e) => setT(e.target.value)} />
-      <button className="btn" disabled={!t.trim()} onClick={() => onSave(t.trim())}>Save</button>
+    <div style={{ marginTop: 10 }}>
+      <TalkBox value={t} onChange={setT} placeholder="Or say it, or type a few words" rows={1} />
+      <button className="btn block" style={{ marginTop: 6 }} disabled={!t.trim()} onClick={() => onSave(t.trim())}>Save the words</button>
     </div>
   );
 }

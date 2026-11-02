@@ -30,9 +30,11 @@ Personalized youth baseball practice planning and player development. Private, o
 | Several coaches on their own phones: coach pack export (no private notes or contacts), notes tagged by coach, merge after practice with nothing overwritten | Working |
 | Player limits (no throwing, hitting or running until a date) honored by every plan; reuse a plan with objectives rebuilt for who is here; move players between groups; PIN lock | Working |
 | Coach notes on every library drill: common mistakes with the fix, safety line where one exists, spacing, make it a game; library audited (docs/DECISIONS.md, 2026-11-02 audit) | Working |
+| Notes any way you like: tap the kid and a button; or say it (Tap to talk, browser speech recognition) or type it, and the app guesses who, what you saw and the area from the words for one-tap confirmation; nicknames per player; shared first names ask instead of guessing | Working |
+| Guided tour (nine stops on the real screens, offered once, replayable from Help or Setup) and a searchable FAQ on the Help page | Working |
 | Demo team (fictional, marked, removable) | Working |
 | Offline: full app shell precached; verified reload with the network off and notes saved offline | Working |
-| Voice notes, video reference clips, multi-coach live sync | Roadmap (see docs/ROADMAP.md) |
+| Stored voice clips, video reference clips, multi-coach live sync | Roadmap (see docs/ROADMAP.md) |
 
 ## Run it
 

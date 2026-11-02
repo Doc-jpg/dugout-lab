@@ -5,7 +5,7 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 
 ## Next five (from the 2026-11-02 audit)
 1. Real-device pass on an iPhone: share sheet for backups and scorecards, sms: and mailto: drafts, PIN relock, iframe print. Nothing here can be verified from a desktop browser.
-2. A first-practice guided tour (three cards) so a coach who skips Help still finds Quick start, quick notes and Finish.
+2. Done 2026-11-02: guided tour (nine stops) and FAQ; freestyle notes typed or spoken with name, read and area guessed. Still open: stored voice clips for playback (not just transcription).
 3. Season view: which categories a team has touched by week, so the generator's light-category hint has a picture behind it.
 4. Voice note capture during live practice (MediaRecorder where allowed; transcription stays off-device and optional).
 5. Drill library second edition: 20 more drills for the thin spots (catching, pitching for 8U to 10U, athletic movement indoors) and a coach-submitted drill review path.
@@ -17,7 +17,7 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 - Baseball IQ scenario generator tied to current team priorities (whiteboard questions and small-sided games).
 - More detailed skill tracking per sub-skill (for example backhand vs forehand inside infield).
 - Lineup and position planning view using the roster (no scoring).
-- Voice note capture during live practice (Web Speech / MediaRecorder where allowed).
+- Voice notes: speech-to-text is in (browser recognition, needs a signal). Next: keep the audio clip with MediaRecorder for playback, and an offline transcription option.
 
 ## Phase 3
 - Video reference links and locally stored clips, with no claims of mechanical diagnosis.

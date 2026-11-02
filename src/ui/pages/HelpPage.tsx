@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTour } from '../components/Tour';
+import { FAQ } from './faq';
 
 /** Plain-English walkthrough. */
 export function HelpPage() {
+  const tour = useTour();
+  const [q, setQ] = useState('');
+  const hits = q.trim() ? FAQ.filter((f) => (f.q + ' ' + f.a + ' ' + (f.tags ?? '')).toLowerCase().includes(q.trim().toLowerCase())) : FAQ;
   return (
     <div>
       <div className="row between" style={{ marginBottom: 8 }}>
@@ -10,6 +15,25 @@ export function HelpPage() {
         <Link to="/settings" className="btn ghost sm">Settings</Link>
       </div>
       <h1>How Dugout Lab works</h1>
+      <div className="card" style={{ borderLeft: '4px solid var(--accent)' }}>
+        <div className="row between">
+          <div className="grow"><strong>One-minute tour</strong><div className="small muted">Nine stops on the real screens. Take it any time.</div></div>
+          <button className="btn primary" onClick={tour.start}>Take the tour</button>
+        </div>
+      </div>
+      <div className="card">
+        <h2>Questions coaches ask</h2>
+        <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: voice, rain, parents, backup…" aria-label="Search the questions" />
+        <div style={{ marginTop: 8 }}>
+          {hits.map((f) => (
+            <details key={f.q} className="faq" open={q.trim().length > 0 && hits.length <= 3}>
+              <summary>{f.q}</summary>
+              <p className="small" style={{ margin: '4px 0 8px' }}>{f.a}</p>
+            </details>
+          ))}
+          {hits.length === 0 && <div className="empty">Nothing matches. Try another word, or read on below.</div>}
+        </div>
+      </div>
       <div className="card">
         <h2>The idea</h2>
         <p className="small">Every kid is different, every practice has a purpose, every player should improve. The app keeps a living profile for each player, builds a station-based practice in seconds from who showed up, and gives every kid his own objective at every station. What you notice during practice goes in with two taps and comes back as suggestions, labeled as suggestions.</p>
@@ -38,7 +62,7 @@ export function HelpPage() {
         <ol className="step-list small">
           <li>Start practice. The timer runs the rotation; Next moves everyone. Pause, +2 and -2 are there for real life.</li>
           <li>Tap the station you are standing at to see its drill, cues, and the objectives of the group in front of you.</li>
-          <li>Quick note: tap a kid's name, then Got it, Struggled, Hesitated, Frustrated, Reset worked, or type a few words. That is the whole data entry.</li>
+          <li>Quick note, your way: tap a kid's name and a button; or tap + Note and say it ("Jonah hesitated on the cutoff") or type it, and the app fills in who, what you saw and the area for you to confirm. Five seconds either way.</li>
           <li>"This station is not working": run the easier version, swap the drill, or merge stations if you lost a coach.</li>
           <li>Finish: the recap lists wins and things to work on, asks whether each custom version helped, and shows suggestions for next time. Everything is saved on the phone, online or not.</li>
         </ol>

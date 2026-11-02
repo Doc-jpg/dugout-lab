@@ -7,7 +7,9 @@ import { loadDemoData } from '../../data/demo';
 import { suggestionsForTeam, attentionGaps } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
 import { CATEGORY_LABEL, CATEGORIES, today, teamAgeGroup, type Category, type Observation } from '../../engine/types';
-import { Sheet, useToast } from '../components/Sheet';
+import { useToast } from '../components/Sheet';
+import { SmartNoteSheet } from '../components/SmartNote';
+import { TourOffer } from '../components/Tour';
 import { programName } from '../../engine/brand';
 
 /** Today: the next practice, what to remember about kids, one tap to start. */
@@ -23,7 +25,7 @@ export function TodayPage() {
   const nav = useNavigate();
   const toast = useToast();
   const [health, setHealth] = useState<StorageHealth | null>(null);
-  const [gameNote, setGameNote] = useState(false);
+  const [gameNote, setGameNote] = useState<false | 'game' | 'quick'>(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     storageHealth().then(setHealth);
@@ -66,6 +68,7 @@ export function TodayPage() {
           <Link to="/settings" className="btn ghost sm" aria-label="Settings">⚙</Link>
         </div>
       </div>
+      <TourOffer />
 
       {!team && (
         <div className="card">
@@ -82,7 +85,7 @@ export function TodayPage() {
       {team && (
         <>
           {next ? (
-            <div className="card">
+            <div className="card" data-tour="today-next">
               <div className="row between">
                 <div>
                   <div className="muted small">{live ? 'Practice in progress' : 'Next practice'}</div>
@@ -99,7 +102,7 @@ export function TodayPage() {
             <div className="card">
               <h2>No practice planned</h2>
               <p className="muted small">Generate one in seconds: who is here, how long, how many coaches.</p>
-              <button className="btn primary big-btn block" onClick={() => nav('/practices/new')}>+ New practice</button>
+              <button className="btn primary big-btn block" data-tour="today-next" onClick={() => nav('/practices/new')}>+ New practice</button>
             </div>
           )}
 
@@ -128,7 +131,8 @@ export function TodayPage() {
           </div>
 
           <div className="row wrap" style={{ marginTop: 12 }}>
-            <button className="btn" onClick={() => setGameNote(true)}>+ Game note</button>
+            <button className="btn" data-tour="note" onClick={() => setGameNote('quick')}>+ Note</button>
+            <button className="btn" onClick={() => setGameNote('game')}>+ Game note</button>
             <button className="btn" onClick={() => nav('/practices/new')}>+ New practice</button>
             <button className="btn" onClick={() => nav('/parents')}>Parent updates{due.length ? ` (${due.length} due)` : ''}</button>
           </div>
@@ -152,40 +156,8 @@ export function TodayPage() {
 
       {health && health.verdict === 'install' && <div className="banner warn" style={{ marginTop: 12 }}>{health.message}</div>}
 
-      {gameNote && team && <GameNoteSheet players={players} onClose={() => setGameNote(false)} onSaved={() => { setGameNote(false); toast.show('Game note saved'); }} />}
+      {gameNote && team && <SmartNoteSheet players={players} source={gameNote} onClose={() => setGameNote(false)} onSaved={(pid) => { setGameNote(false); toast.show(`${gameNote === 'game' ? 'Game note' : 'Note'} saved for ${playerName(players.find((p) => p.id === pid), 'first')}`); }} />}
       {toast.el}
     </div>
-  );
-}
-
-/** "Johnny hesitated on the cutoff." A game observation that feeds the next practice. */
-export function GameNoteSheet({ players, onClose, onSaved, source = 'game', practiceId }: { players: ReturnType<typeof usePlayers>; onClose: () => void; onSaved: () => void; source?: Observation['source']; practiceId?: string }) {
-  const [playerId, setPlayerId] = useState<string>('');
-  const [read, setRead] = useState<Observation['read']>('hesitated');
-  const [category, setCategory] = useState<Category | ''>('');
-  const [text, setText] = useState('');
-  const reads: Array<[Observation['read'], string]> = [['got_it', 'Got it'], ['working', 'Working on it'], ['struggled', 'Struggled'], ['hesitated', 'Hesitated'], ['confident', 'Confident'], ['frustrated', 'Frustrated'], ['reset_worked', 'Reset worked'], ['hustle', 'Hustled'], ['teammate', 'Good teammate'], ['coachable', 'Took the cue'], ['coasting', 'Went through the motions'], ['note', 'Just a note']];
-  return (
-    <Sheet
-      title={source === 'game' ? 'Game note' : 'Quick note'}
-      onClose={onClose}
-      footer={
-        <>
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={!playerId} onClick={async () => { await addObservation({ playerId, read, category: category || undefined, text: text || undefined, source, practiceId }); onSaved(); }}>Save</button>
-        </>
-      }
-    >
-      <div className="field"><label>Who</label>
-        <div className="chips">{players.filter((p) => p.status === 'active').map((p) => <button key={p.id} className={`chip sm ${playerId === p.id ? 'on' : ''}`} onClick={() => setPlayerId(p.id)}>{playerName(p, 'short')}</button>)}</div>
-      </div>
-      <div className="field"><label>What you saw</label>
-        <div className="chips read-chips">{reads.map(([v, l]) => <button key={v} className={`chip ${read === v ? 'on' : ''}`} onClick={() => setRead(v)}>{l}</button>)}</div>
-      </div>
-      <div className="field"><label>Area</label>
-        <div className="chips">{CATEGORIES.map((c) => <button key={c} className={`chip sm ${category === c ? 'on' : ''}`} onClick={() => setCategory(category === c ? '' : c)}>{CATEGORY_LABEL[c]}</button>)}</div>
-      </div>
-      <div className="field"><label>Note (optional)</label><textarea className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Hesitated on the cutoff with a runner going first to third" /></div>
-    </Sheet>
   );
 }

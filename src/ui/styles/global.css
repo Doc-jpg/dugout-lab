@@ -333,3 +333,18 @@ textarea.input { min-height: 72px; }
 
 .station-head { width: 100%; background: none; border: 0; padding: 0; margin: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .station-head .title, .station-head .sub { display: block; }
+
+/* Tap to talk */
+.btn.talk { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 64px; padding: 6px 8px; font-size: 12px; }
+.btn.talk.on { background: var(--danger); color: #fff; border-color: var(--danger); animation: talkpulse 1.2s ease-in-out infinite; }
+@keyframes talkpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(180, 40, 40, 0.35); } 50% { box-shadow: 0 0 0 8px rgba(180, 40, 40, 0); } }
+
+/* Guided tour */
+.tour-mask { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.tour-spot { position: fixed; z-index: 91; border: 3px solid var(--accent); border-radius: 12px; box-shadow: 0 0 0 9999px rgba(20, 24, 22, 0.45); pointer-events: none; transition: all 0.25s ease; }
+.tour-card { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 92; background: var(--bg-elev); color: var(--ink); border-radius: 14px; padding: 14px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3); }
+.tour-card h3 { margin: 0 0 4px; text-transform: none; letter-spacing: 0; font-size: 18px; color: var(--ink); }
+.tour-card .step { font-size: 12px; color: var(--ink-3); }
+.tour-card.top { bottom: auto; top: calc(12px + env(safe-area-inset-top)); }
+details.faq { border-top: 1px solid var(--line); padding: 8px 0 2px; }
+details.faq summary { cursor: pointer; font-weight: 600; min-height: 32px; display: flex; align-items: center; }

@@ -178,6 +178,8 @@ export interface Player {
   firstName: string;
   lastName: string;
   number?: string;
+  /** What the coach actually calls him ("JJ", "Big Mike"), so spoken and typed notes find him. */
+  nicknames?: string[];
   ageGroup?: AgeGroup;
   throws?: Hand;
   bats?: Hand;
@@ -512,6 +514,8 @@ export interface Settings {
   /** Optional app lock: SHA-256 of salt + PIN. The app asks for the PIN on open and after being in the background a while. */
   pinHash?: string;
   pinSalt?: string;
+  /** When the coach finished or skipped the guided tour. */
+  tourSeenAt?: ISODateTime;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

@@ -20,6 +20,7 @@ import { LockScreen } from './components/LockScreen';
 import { requestPersistence, seedLibrary } from '../db/db';
 import { useCurrentTeam } from './hooks';
 import { brandCss } from '../engine/brand';
+import { TourProvider } from './components/Tour';
 
 const Icon = {
   today: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /><circle cx="12" cy="15.5" r="2" /></svg>,
@@ -46,6 +47,7 @@ export function App() {
   }, [team?.brand?.primary, team?.brand?.accent]);
   return (
     <LockScreen>
+    <TourProvider>
     <div className="app">
       <nav className="tabbar" aria-label="Main">
         <NavLink to="/today">{Icon.today}<span>Today</span></NavLink>
@@ -78,6 +80,7 @@ export function App() {
         </ErrorBoundary>
       </main>
     </div>
+    </TourProvider>
     </LockScreen>
   );
 }

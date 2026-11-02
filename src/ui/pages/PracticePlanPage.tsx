@@ -44,7 +44,7 @@ export function PracticePlanPage() {
         <button className="btn ghost sm" onClick={() => nav('/practices')}>‹ Practices</button>
         <div className="row">
           <button className="btn sm" onClick={() => setAdjust(true)}>Adjust</button>
-          {practice.status !== 'done' && <button className="btn primary sm" onClick={() => nav(`/practices/${practice.id}/live`)}>{practice.status === 'live' ? 'Resume' : 'Start practice'}</button>}
+          {practice.status !== 'done' && <button className="btn primary sm" data-tour="start" onClick={() => nav(`/practices/${practice.id}/live`)}>{practice.status === 'live' ? 'Resume' : 'Start practice'}</button>}
           {practice.status === 'done' && <button className="btn sm" onClick={() => nav(`/practices/${practice.id}/recap`)}>Recap</button>}
         </div>
       </div>
@@ -59,8 +59,8 @@ export function PracticePlanPage() {
         <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>{practice.rationale.map((r, i) => <li key={i}>{r}</li>)}</ul>
       </details>
 
-      {practice.blocks.map((b) => (
-        <div key={b.id} className="section">
+      {practice.blocks.map((b, bi) => (
+        <div key={b.id} className="section" data-tour={bi === 1 ? 'station' : undefined}>
           <div className="block-head">
             <h3>{b.title}</h3>
             <span className="muted small">{minuteLabel(b.startMin)} to {minuteLabel(b.startMin + b.minutes)} · {b.minutes} min{!b.wholeTeam ? ` · ${b.rotationMin} min per station, ${TRANSITION_MIN} to switch` : ''}</span>

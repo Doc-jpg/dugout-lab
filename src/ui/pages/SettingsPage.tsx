@@ -127,7 +127,7 @@ export function SettingsPage() {
         <div className="section-title" style={{ marginTop: 0 }}><h3>Backup</h3><span className="muted small">{settings.lastBackupAt ? `last ${new Date(settings.lastBackupAt).toLocaleDateString()}` : 'never'}</span></div>
         <p className="muted small" style={{ marginTop: 0 }}>One file with everything: roster, profiles, notes, drills, versions, practices. Keep it in Files or iCloud. Restoring merges by default and never throws away a newer note on this phone.</p>
         <div className="row wrap">
-          <button className="btn primary" onClick={exportBackup} disabled={busy}>{busy ? 'Working…' : 'Back up now'}</button>
+          <button className="btn primary" data-tour="backup" onClick={exportBackup} disabled={busy}>{busy ? 'Working…' : 'Back up now'}</button>
           <button className="btn" onClick={openBackup}>Restore from a backup</button>
         </div>
         {health && <div className={`banner ${health.verdict === 'install' ? 'warn' : 'info'} small`} style={{ marginTop: 10 }}>{health.message}{health.usageBytes != null ? ` Using ${(health.usageBytes / 1024 / 1024).toFixed(1)} MB.` : ''}</div>}

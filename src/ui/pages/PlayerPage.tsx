@@ -9,7 +9,7 @@ import {
   type RestrictionKind, type Restriction,
   type Category, type Level, type SkillStatus, type CoachingApproach, type Player, type Hand, type Position, type Goal
 } from '../../engine/types';
-import { READ_LABEL } from './LivePracticePage';
+import { READ_LABEL, SmartNoteSheet } from '../components/SmartNote';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 import { FamilyPanel } from '../components/FamilyPanel';
 
@@ -202,7 +202,7 @@ export function PlayerPage() {
 
       {editing && <EditPlayerSheet p={p} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); toast.show('Saved'); }} />}
       {goalSheet && <GoalSheet p={p} onClose={() => setGoalSheet(false)} onSaved={() => { setGoalSheet(false); toast.show('Goal added'); }} />}
-      {noteSheet && <NoteSheet p={p} onClose={() => setNoteSheet(false)} onSaved={() => { setNoteSheet(false); toast.show('Note saved'); }} />}
+      {noteSheet && <SmartNoteSheet players={[p]} fixedPlayerId={p.id} onClose={() => setNoteSheet(false)} onSaved={() => { setNoteSheet(false); toast.show('Note saved'); }} />}
       {throwSheet && <ThrowSheet p={p} onClose={() => setThrowSheet(false)} onSaved={() => { setThrowSheet(false); toast.show('Logged'); }} />}
       {limitSheet && <LimitSheet p={p} onClose={() => setLimitSheet(false)} onSaved={() => { setLimitSheet(false); toast.show('Saved'); }} />}
       {levelSheet && <LevelSheet p={p} category={levelSheet} onClose={() => setLevelSheet(null)} onSaved={() => { setLevelSheet(null); toast.show('Saved'); }} />}
@@ -234,17 +234,18 @@ function TrendLines({ observations }: { observations: import('../../engine/types
 }
 
 function EditPlayerSheet({ p, onClose, onSaved }: { p: Player; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ firstName: p.firstName, lastName: p.lastName, number: p.number ?? '', ageGroup: p.ageGroup, throws: p.throws, bats: p.bats, positions: p.positions, experience: p.experience ?? '', strengths: p.strengths.join('\n'), challenges: p.challenges.join('\n'), cues: p.cues.join('\n'), approaches: p.approaches, confidenceNotes: p.confidenceNotes ?? '', responseNotes: p.responseNotes ?? '', selfReflection: p.selfReflection ?? '', otherTeams: p.otherTeams ?? '' });
+  const [f, setF] = useState({ firstName: p.firstName, lastName: p.lastName, number: p.number ?? '', ageGroup: p.ageGroup, throws: p.throws, bats: p.bats, positions: p.positions, experience: p.experience ?? '', strengths: p.strengths.join('\n'), challenges: p.challenges.join('\n'), cues: p.cues.join('\n'), approaches: p.approaches, confidenceNotes: p.confidenceNotes ?? '', responseNotes: p.responseNotes ?? '', selfReflection: p.selfReflection ?? '', otherTeams: p.otherTeams ?? '', nicknames: (p.nicknames ?? []).join(', ') });
   const set = (k: keyof typeof f, v: any) => setF({ ...f, [k]: v });
   const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
   const toggle = <T,>(arr: T[], v: T) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   return (
-    <Sheet title="Edit player" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" onClick={async () => { await updatePlayer(p.id, { firstName: f.firstName, lastName: f.lastName, number: f.number || undefined, ageGroup: f.ageGroup, throws: f.throws, bats: f.bats, positions: f.positions, experience: f.experience || undefined, strengths: lines(f.strengths), challenges: lines(f.challenges), cues: lines(f.cues), approaches: f.approaches, confidenceNotes: f.confidenceNotes || undefined, responseNotes: f.responseNotes || undefined, selfReflection: f.selfReflection || undefined, otherTeams: f.otherTeams || undefined }); onSaved(); }}>Save</button></>}>
+    <Sheet title="Edit player" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" onClick={async () => { await updatePlayer(p.id, { firstName: f.firstName, lastName: f.lastName, number: f.number || undefined, ageGroup: f.ageGroup, throws: f.throws, bats: f.bats, positions: f.positions, experience: f.experience || undefined, strengths: lines(f.strengths), challenges: lines(f.challenges), cues: lines(f.cues), approaches: f.approaches, confidenceNotes: f.confidenceNotes || undefined, responseNotes: f.responseNotes || undefined, selfReflection: f.selfReflection || undefined, otherTeams: f.otherTeams || undefined, nicknames: f.nicknames.split(',').map((x) => x.trim()).filter(Boolean) }); onSaved(); }}>Save</button></>}>
       <div className="inline-fields">
         <div className="field"><label>First</label><input className="input" value={f.firstName} onChange={(e) => set('firstName', e.target.value)} /></div>
         <div className="field"><label>Last</label><input className="input" value={f.lastName} onChange={(e) => set('lastName', e.target.value)} /></div>
         <div className="field"><label>#</label><input className="input" style={{ width: 60 }} value={f.number} onChange={(e) => set('number', e.target.value)} /></div>
       </div>
+      <div className="field"><label>Also goes by (so spoken notes find him)</label><input className="input" value={f.nicknames} onChange={(e) => set('nicknames', e.target.value)} placeholder="JJ, Big Mike" /></div>
       <div className="field"><label>Age group</label><div className="chips">{AGE_GROUPS.map((a) => <button key={a} className={`chip sm ${f.ageGroup === a ? 'on' : ''}`} onClick={() => set('ageGroup', a)}>{a}</button>)}</div></div>
       <div className="inline-fields">
         <div className="field"><label>Throws</label><div className="chips">{(['R', 'L'] as Hand[]).map((h) => <button key={h} className={`chip sm ${f.throws === h ? 'on' : ''}`} onClick={() => set('throws', h)}>{h}</button>)}</div></div>
@@ -285,21 +286,6 @@ function GoalSheet({ p, onClose, onSaved }: { p: Player; onClose: () => void; on
       <div className="field"><label>Kind</label><div className="chips"><button className={`chip ${kind === 'technical' ? 'on' : ''}`} onClick={() => setKind('technical')}>Technical</button><button className={`chip ${kind === 'mental' ? 'on' : ''}`} onClick={() => setKind('mental')}>Mental</button></div></div>
       <div className="field"><label>The goal, as you would say it to him</label><textarea className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'mental' ? 'Breath, glove tap, next pitch after a strikeout' : 'Backhand: right foot plants, glove out front'} /></div>
       <label className="switch row between"><span>He helped set this goal</span><input type="checkbox" checked={fromPlayer} onChange={(e) => setFromPlayer(e.target.checked)} /></label>
-    </Sheet>
-  );
-}
-
-function NoteSheet({ p, onClose, onSaved }: { p: Player; onClose: () => void; onSaved: () => void }) {
-  const [read, setRead] = useState<import('../../engine/types').Observation['read']>('note');
-  const [category, setCategory] = useState<Category | ''>('');
-  const [text, setText] = useState('');
-  const [source, setSource] = useState<'quick' | 'game'>('quick');
-  return (
-    <Sheet title={`Note on ${playerName(p, 'first')}`} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={read === 'note' && !text.trim()} onClick={async () => { await addObservation({ playerId: p.id, read, category: category || undefined, text: text.trim() || undefined, source }); onSaved(); }}>Save</button></>}>
-      <div className="field"><label>What you saw</label><div className="chips read-chips">{(Object.keys(READ_LABEL) as Array<keyof typeof READ_LABEL>).map((r) => <button key={r} className={`chip ${read === r ? 'on' : ''}`} onClick={() => setRead(r)}>{READ_LABEL[r]}</button>)}</div></div>
-      <div className="field"><label>Area</label><div className="chips">{CATEGORIES.map((c) => <button key={c} className={`chip sm ${category === c ? 'on' : ''}`} onClick={() => setCategory(category === c ? '' : c)}>{CATEGORY_LABEL[c]}</button>)}</div></div>
-      <div className="field"><label>Where</label><div className="chips"><button className={`chip sm ${source === 'quick' ? 'on' : ''}`} onClick={() => setSource('quick')}>Practice or anytime</button><button className={`chip sm ${source === 'game' ? 'on' : ''}`} onClick={() => setSource('game')}>Game</button></div></div>
-      <div className="field"><label>Note</label><textarea className="input" value={text} onChange={(e) => setText(e.target.value)} /></div>
     </Sheet>
   );
 }

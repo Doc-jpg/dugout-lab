@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTour } from '../components/Tour';
 import { createTeam, createPlayer, saveSettings } from '../../db/db';
 import { loadDemoData } from '../../data/demo';
 import { ageGroupForClass, seasonYearFor, AGE_GROUPS, type AgeGroup } from '../../engine/types';
@@ -9,6 +10,7 @@ import { parseRoster } from '../../engine/roster';
 /** First run: three short steps and the coach is at a practice plan. Everything else can wait. */
 export function SetupPage() {
   const nav = useNavigate();
+  const tour = useTour();
   const toast = useToast();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
@@ -82,7 +84,8 @@ export function SetupPage() {
           <h2>You are set</h2>
           <p className="small">Next: generate a practice (who is here, how long, how many coaches) and run it from your phone. During practice, tap a kid's name and what you saw; that is the whole data entry. Goals, parent contacts and the program's logo can be added any time from a player's page and Settings.</p>
           <button className="btn primary big-btn block" onClick={() => nav('/practices/new')}>Generate the first practice</button>
-          <button className="btn block" style={{ marginTop: 8 }} onClick={() => nav('/today')}>Go to Today</button>
+          <button className="btn block" style={{ marginTop: 8 }} onClick={() => { nav('/today'); tour.start(); }}>Show me around first (1 minute)</button>
+          <button className="btn ghost block" style={{ marginTop: 8 }} onClick={() => nav('/today')}>Go to Today</button>
         </div>
       )}
       {toast.el}
