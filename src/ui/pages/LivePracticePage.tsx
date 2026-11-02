@@ -157,7 +157,7 @@ export function LivePracticePage() {
           <QuickText onSave={(t) => quick(note.playerId, 'note', t)} />
         </Sheet>
       )}
-      {freeNote && <SmartNoteSheet players={hereIds.map((id) => players.get(id)!).filter(Boolean)} title="Note: say it or type it" source="practice" practiceId={practice.id} onClose={() => setFreeNote(false)} onSaved={(pid) => { setFreeNote(false); toast.show(`Saved for ${playerName(players.get(pid), 'first')}`); }} />}
+      {freeNote && <SmartNoteSheet players={[...hereIds, ...practice.inputs.presentIds.filter((id) => !hereIds.includes(id))].map((id) => players.get(id)!).filter(Boolean)} title="Note: say it or type it" source="practice" practiceId={practice.id} onClose={() => setFreeNote(false)} onSaved={(pid) => { setFreeNote(false); toast.show(`Saved for ${playerName(players.get(pid), 'first')}`); }} />}
       {swap && (
         <Sheet title="Fix this station" onClose={() => setSwap(false)}>
           <div className="col">

@@ -52,3 +52,13 @@ describe('freestyle note parsing', () => {
     expect(soundKey('Kason')).toBe(soundKey('Cason'));
   });
 });
+
+describe('live note offers everyone at practice, the group in front of the coach first', () => {
+  it('a kid from another group is still found', () => {
+    const here = ['b'];
+    const present = ['a', 'b', 'c'];
+    const ordered = [...here, ...present.filter((id) => !here.includes(id))].map((id) => roster.find((p) => p.id === id)!);
+    expect(ordered.map((p) => p.id)).toEqual(['b', 'a', 'c']);
+    expect(parseNote('Jonah got it on the backhand', ordered).player?.playerId).toBe('a');
+  });
+});
