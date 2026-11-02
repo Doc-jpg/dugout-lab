@@ -1,0 +1,204 @@
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useSettings, useTeams, useCurrentTeam, usePlayers } from '../hooks';
+import { saveSettings, createTeam, updateTeam, storageHealth, requestPersistence, db, playerName, type StorageHealth } from '../../db/db';
+import { buildBackup, readBackup, restoreBackup, readDugoutDadArchive, planRosterImport, commitRosterImport, shareOrDownload, type BackupContents, type RestoreReport, type DugoutDadRoster, type RosterImportPlan } from '../../io/backup';
+import { loadDemoData, removeDemoData, DEMO_TEAM_ID } from '../../data/demo';
+import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, nowIso, type AgeGroup, type Category, type Equipment, type Space } from '../../engine/types';
+import { APP_VERSION } from '../version';
+import { Sheet, Confirm, useToast } from '../components/Sheet';
+
+export function SettingsPage() {
+  const settings = useSettings();
+  const teams = useTeams();
+  const team = useCurrentTeam();
+  const players = usePlayers(team?.id);
+  const nav = useNavigate();
+  const toast = useToast();
+  const [health, setHealth] = useState<StorageHealth | null>(null);
+  const [teamSheet, setTeamSheet] = useState<'new' | 'edit' | null>(null);
+  const [restore, setRestore] = useState<{ contents: BackupContents; report?: RestoreReport } | null>(null);
+  const [dad, setDad] = useState<{ roster: DugoutDadRoster; plan?: RosterImportPlan; dadTeamId?: string; labTeamId?: string } | null>(null);
+  const [removeDemo, setRemoveDemo] = useState(false);
+  const [wipe, setWipe] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    storageHealth().then(setHealth);
+  }, []);
+  useEffect(() => {
+    if (window.location.hash.includes('#backup') || window.location.hash.includes('#dugout-dad')) {
+      const id = window.location.hash.includes('backup') ? 'backup' : 'dugout-dad';
+      setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  }, []);
+
+  const exportBackup = async () => {
+    setBusy(true);
+    try {
+      const { bytes, fileName, manifest } = await buildBackup(APP_VERSION);
+      const how = await shareOrDownload(bytes, fileName);
+      await saveSettings({ lastBackupAt: nowIso() });
+      toast.show(`${how === 'shared' ? 'Shared' : 'Downloaded'} ${fileName} (${Object.values(manifest.files).reduce((s, f) => s + f.records, 0)} records)`);
+    } catch (e: any) {
+      toast.show(`Backup failed: ${e?.message ?? e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const pickFile = (accept: string, onFile: (bytes: Uint8Array, name: string) => void) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.onchange = async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      onFile(new Uint8Array(await f.arrayBuffer()), f.name);
+    };
+    input.click();
+  };
+  const openBackup = () => pickFile('.zip,application/zip', async (bytes) => {
+    try {
+      setRestore({ contents: await readBackup(bytes) });
+    } catch (e: any) {
+      toast.show(e?.message ?? String(e));
+    }
+  });
+  const openDad = () => pickFile('.zip,application/zip', async (bytes) => {
+    try {
+      const roster = await readDugoutDadArchive(bytes);
+      const mine = roster.teams.find((t) => t.isMine) ?? roster.teams[0];
+      setDad({ roster, dadTeamId: mine?.id, labTeamId: team?.id });
+    } catch (e: any) {
+      toast.show(e?.message ?? String(e));
+    }
+  });
+
+  return (
+    <div>
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <Link to="/today" className="btn ghost sm">‹ Today</Link>
+        <Link to="/help" className="btn ghost sm">How it works</Link>
+      </div>
+      <h1>Settings</h1>
+
+      <div className="card">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>Team</h3><button className="btn sm" onClick={() => setTeamSheet('new')}>+ New team</button></div>
+        {teams.length > 0 && (
+          <div className="chips" style={{ marginBottom: 8 }}>
+            {teams.map((t) => <button key={t.id} className={`chip sm ${team?.id === t.id ? 'on' : ''}`} onClick={() => saveSettings({ teamId: t.id })}>{t.shortName ?? t.name}</button>)}
+          </div>
+        )}
+        {team ? (
+          <>
+            <div><strong>{team.name}</strong> · {team.ageGroup}{team.season ? ` · ${team.season}` : ''} · {players.filter((p) => p.status === 'active').length} active players</div>
+            <div className="small muted">Priorities: {team.priorities.length ? team.priorities.map((c) => CATEGORY_LABEL[c]).join(', ') : 'none set'}</div>
+            <button className="btn sm" style={{ marginTop: 8 }} onClick={() => setTeamSheet('edit')}>Edit team and priorities</button>
+          </>
+        ) : <div className="muted small">No team yet.</div>}
+      </div>
+
+      <div className="card">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>Practice defaults</h3></div>
+        <div className="field"><label>Usual length</label><div className="chips">{[60, 75, 90, 120].map((m) => <button key={m} className={`chip sm ${settings.defaultDurationMin === m ? 'on' : ''}`} onClick={() => saveSettings({ defaultDurationMin: m })}>{m} min</button>)}</div></div>
+        <div className="field"><label>Usual coaches</label><div className="chips">{[1, 2, 3, 4].map((n) => <button key={n} className={`chip sm ${settings.defaultCoaches === n ? 'on' : ''}`} onClick={() => saveSettings({ defaultCoaches: n })}>{n}</button>)}</div></div>
+        <div className="field"><label>Usual space</label><div className="chips">{(['tight', 'half', 'full'] as Space[]).map((s) => <button key={s} className={`chip sm ${settings.defaultSpace === s ? 'on' : ''}`} onClick={() => saveSettings({ defaultSpace: s })}>{s}</button>)}</div></div>
+        <div className="field"><label>Equipment you usually have</label><div className="chips">{(Object.keys(EQUIPMENT_LABEL) as Equipment[]).map((e) => <button key={e} className={`chip sm ${settings.defaultEquipment.includes(e) ? 'on' : ''}`} onClick={() => saveSettings({ defaultEquipment: settings.defaultEquipment.includes(e) ? settings.defaultEquipment.filter((x) => x !== e) : [...settings.defaultEquipment, e] })}>{EQUIPMENT_LABEL[e]}</button>)}</div></div>
+        <div className="field"><label>App name</label><input className="input" value={settings.appName} onChange={(e) => saveSettings({ appName: e.target.value || 'Dugout Lab' })} /></div>
+      </div>
+
+      <div className="card" id="backup">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>Backup</h3><span className="muted small">{settings.lastBackupAt ? `last ${new Date(settings.lastBackupAt).toLocaleDateString()}` : 'never'}</span></div>
+        <p className="muted small" style={{ marginTop: 0 }}>One file with everything: roster, profiles, notes, drills, versions, practices. Keep it in Files or iCloud. Restoring merges by default and never throws away a newer note on this phone.</p>
+        <div className="row wrap">
+          <button className="btn primary" onClick={exportBackup} disabled={busy}>{busy ? 'Working…' : 'Back up now'}</button>
+          <button className="btn" onClick={openBackup}>Restore from a backup</button>
+        </div>
+        {health && <div className={`banner ${health.verdict === 'install' ? 'warn' : 'info'} small`} style={{ marginTop: 10 }}>{health.message}{health.usageBytes != null ? ` Using ${(health.usageBytes / 1024 / 1024).toFixed(1)} MB.` : ''}</div>}
+        {health?.verdict === 'install' && <button className="btn sm" onClick={async () => { await requestPersistence(); setHealth(await storageHealth()); }}>Ask the browser to keep this data</button>}
+      </div>
+
+      <div className="card" id="dugout-dad">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>Roster from Dugout Dad</h3></div>
+        <p className="muted small" style={{ marginTop: 0 }}>Optional. In Dugout Dad, Transfer, "Export the weekend", save the file, then open it here. Only names, numbers and throwing/batting hands are copied, into the team you choose. Nothing in Dugout Dad changes.</p>
+        <button className="btn" onClick={openDad} disabled={!team}>Open a Dugout Dad archive</button>
+        {!team && <div className="muted small" style={{ marginTop: 6 }}>Create a team first so the roster has somewhere to go.</div>}
+      </div>
+
+      <div className="card">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>Demo team</h3></div>
+        <p className="muted small" style={{ marginTop: 0 }}>Twelve fictional players, a finished practice and one planned for today. Marked DEMO everywhere; removed in one tap.</p>
+        <div className="row wrap">
+          <button className="btn" onClick={async () => { setBusy(true); try { const r = await loadDemoData(); toast.show('Demo loaded'); nav(`/practices/${r.practiceId}`); } finally { setBusy(false); } }} disabled={busy}>Load demo team</button>
+          {teams.some((t) => t.id === DEMO_TEAM_ID) && <button className="btn" onClick={() => setRemoveDemo(true)}>Remove demo data</button>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="section-title" style={{ marginTop: 0 }}><h3>About</h3></div>
+        <p className="small muted">Dugout Lab {APP_VERSION}. No account, no server, no tracking. Everything stays on this device until you back it up. Notes about players are private to you. <Link to="/help">How it works</Link>.</p>
+        <button className="btn sm" style={{ color: 'var(--danger)' }} onClick={() => setWipe(true)}>Erase everything on this device</button>
+      </div>
+
+      {teamSheet && <TeamSheet mode={teamSheet} team={teamSheet === 'edit' ? team : undefined} onClose={() => setTeamSheet(null)} onSaved={() => { setTeamSheet(null); toast.show('Saved'); }} />}
+      {restore && (
+        <Sheet title="Restore from backup" onClose={() => setRestore(null)}>
+          <div className="small">Backup from {new Date(restore.contents.manifest.createdAt).toLocaleString()} (app {restore.contents.manifest.appVersion}). {Object.entries(restore.contents.manifest.files).filter(([n]) => n !== 'settings.json').map(([n, f]) => `${f.records} ${n.replace('.json', '')}`).join(', ')}.</div>
+          {!restore.report ? (
+            <div className="col" style={{ marginTop: 12 }}>
+              <button className="btn primary block" onClick={async () => { const report = await restoreBackup(restore.contents, 'merge'); setRestore({ ...restore, report }); }}>Merge into this device (safe)</button>
+              <button className="btn block" onClick={async () => { if (!confirm('Replace everything on this device with the backup?')) return; const report = await restoreBackup(restore.contents, 'replace'); setRestore({ ...restore, report }); }}>Replace everything with the backup</button>
+              <p className="muted small">Merge adds what is missing and updates records where the backup is newer. Anything newer on this device is kept and listed.</p>
+            </div>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              <div className="banner info small">Done ({restore.report.mode}). Added: {Object.entries(restore.report.added).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(', ') || 'nothing'}. Updated: {Object.entries(restore.report.updated).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(', ') || 'nothing'}.</div>
+              {restore.report.keptNewerHere.length > 0 && <div className="small muted" style={{ marginTop: 6 }}>{restore.report.keptNewerHere.length} record{restore.report.keptNewerHere.length > 1 ? 's were' : ' was'} newer on this device and kept as is.</div>}
+              <button className="btn primary block" style={{ marginTop: 10 }} onClick={() => { setRestore(null); nav('/today'); }}>Done</button>
+            </div>
+          )}
+        </Sheet>
+      )}
+      {dad && (
+        <Sheet title="Import roster from Dugout Dad" onClose={() => setDad(null)}>
+          {!dad.plan ? (
+            <>
+              <div className="field"><label>Team in the archive</label><div className="chips">{dad.roster.teams.map((t) => <button key={t.id} className={`chip sm ${dad.dadTeamId === t.id ? 'on' : ''}`} onClick={() => setDad({ ...dad, dadTeamId: t.id })}>{t.name}{t.isMine ? ' (mine)' : ''}</button>)}</div></div>
+              <div className="field"><label>Into this Dugout Lab team</label><div className="chips">{teams.map((t) => <button key={t.id} className={`chip sm ${dad.labTeamId === t.id ? 'on' : ''}`} onClick={() => setDad({ ...dad, labTeamId: t.id })}>{t.shortName ?? t.name}</button>)}</div></div>
+              <button className="btn primary block" disabled={!dad.dadTeamId || !dad.labTeamId} onClick={async () => setDad({ ...dad, plan: await planRosterImport(dad.roster, dad.dadTeamId!) })}>Preview</button>
+            </>
+          ) : (
+            <>
+              <div className="small"><strong>{dad.plan.create.length}</strong> to add: {dad.plan.create.map((p) => `${p.number ? '#' + p.number + ' ' : ''}${p.firstName} ${p.lastName}`).join(', ') || 'none'}</div>
+              <div className="small" style={{ marginTop: 4 }}><strong>{dad.plan.update.length}</strong> already here (names and numbers refreshed): {dad.plan.update.map((u) => playerName(u.existing, 'short')).join(', ') || 'none'}</div>
+              <div className="small muted" style={{ marginTop: 4 }}>Skipped: {dad.plan.skipped.map((s) => `${s.player.firstName} ${s.player.lastName} (${s.why})`).join(', ') || 'none'}</div>
+              <button className="btn primary block" style={{ marginTop: 10 }} onClick={async () => { const r = await commitRosterImport(dad.plan!, dad.labTeamId!); toast.show(`${r.created} added, ${r.updated} updated`); setDad(null); nav('/players'); }}>Import {dad.plan.create.length + dad.plan.update.length} players</button>
+            </>
+          )}
+        </Sheet>
+      )}
+      {removeDemo && <Confirm title="Remove the demo team?" text="The fictional players, their notes and practices are deleted. Your own teams are untouched." danger yesLabel="Remove" onNo={() => setRemoveDemo(false)} onYes={async () => { const n = await removeDemoData(); setRemoveDemo(false); toast.show(`Removed ${n} demo records`); }} />}
+      {wipe && <Confirm title="Erase everything?" text="All teams, players, notes, custom drills and practices on this device are deleted. Make a backup first if you want any of it back." danger yesLabel="Erase" onNo={() => setWipe(false)} onYes={async () => { await db.delete(); window.location.reload(); }} />}
+      {toast.el}
+    </div>
+  );
+}
+
+function TeamSheet({ mode, team, onClose, onSaved }: { mode: 'new' | 'edit'; team?: import('../../engine/types').Team; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(team?.name ?? '');
+  const [shortName, setShortName] = useState(team?.shortName ?? '');
+  const [ageGroup, setAgeGroup] = useState<AgeGroup>(team?.ageGroup ?? '12U');
+  const [season, setSeason] = useState(team?.season ?? '');
+  const [priorities, setPriorities] = useState<Category[]>(team?.priorities ?? []);
+  const toggle = (c: Category) => setPriorities(priorities.includes(c) ? priorities.filter((x) => x !== c) : [...priorities, c].slice(0, 4));
+  return (
+    <Sheet title={mode === 'new' ? 'New team' : 'Edit team'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!name.trim()} onClick={async () => { if (mode === 'new') { const t = await createTeam({ name: name.trim(), shortName: shortName || undefined, ageGroup, season: season || undefined, priorities }); await saveSettings({ teamId: t.id }); } else if (team) await updateTeam(team.id, { name: name.trim(), shortName: shortName || undefined, ageGroup, season: season || undefined, priorities }); onSaved(); }}>Save</button></>}>
+      <div className="field"><label>Team name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Rattlers 13U" /></div>
+      <div className="inline-fields">
+        <div className="field"><label>Short name</label><input className="input" value={shortName} onChange={(e) => setShortName(e.target.value)} /></div>
+        <div className="field"><label>Season</label><input className="input" value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Spring 2027" /></div>
+      </div>
+      <div className="field"><label>Age group</label><div className="chips">{AGE_GROUPS.map((a) => <button key={a} className={`chip sm ${ageGroup === a ? 'on' : ''}`} onClick={() => setAgeGroup(a)}>{a}</button>)}</div></div>
+      <div className="field"><label>Team priorities, in order (up to four)</label><div className="chips">{CATEGORIES.map((c) => { const i = priorities.indexOf(c); return <button key={c} className={`chip sm ${i >= 0 ? 'on' : ''}`} onClick={() => toggle(c)}>{i >= 0 ? `${i + 1}. ` : ''}{CATEGORY_LABEL[c]}</button>; })}</div></div>
+    </Sheet>
+  );
+}
