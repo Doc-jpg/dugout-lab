@@ -12,7 +12,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
 
 (async () => {
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+  const ctx = await browser.newContext({ ...devices[process.env.DEVICE || 'iPhone 13'] });
   const page = await ctx.newPage(); PAGE = page;
   page.on('pageerror', (e) => { console.log('PAGEERROR', e.message); fails.push('pageerror ' + e.message); });
   const settle = (ms = 350) => page.waitForTimeout(ms);
@@ -281,7 +281,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   const file = path.join(shotsDir, 'backup.zip');
   await download.saveAs(file);
   expect('backup downloaded', fs.statSync(file).size > 2000, true);
-  const ctx2 = await browser.newContext({ ...devices['iPhone 13'] });
+  const ctx2 = await browser.newContext({ ...devices[process.env.DEVICE || 'iPhone 13'] });
   const p2 = await ctx2.newPage();
   await p2.goto(URL + '#/settings');
   await p2.waitForSelector('text=Backup');

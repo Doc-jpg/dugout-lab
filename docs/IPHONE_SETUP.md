@@ -10,3 +10,7 @@ Address: https://doc-jpg.github.io/dugout-lab/ (once the repository is published
 Dugout Dad stays exactly as it is: different icon, different data, different address.
 
 Updates: when a new version is published, the app picks it up the next time it opens online. Close it fully (swipe away) and reopen if a change does not show.
+
+## Android (assistant coaches)
+
+Same address, same app. Open https://doc-jpg.github.io/dugout-lab/ in Chrome, tap the menu, Install app (or Add to Home screen). Backups and coach packs go out through Android's share sheet and come in through the file picker (Settings, Restore from a backup). Talk uses Google's speech recognition. No account, nothing to download from a store.

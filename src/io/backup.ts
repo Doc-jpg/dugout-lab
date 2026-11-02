@@ -24,6 +24,8 @@ export interface BackupManifest {
   formatVersion: number;
   appVersion: string;
   createdAt: string;
+  /** Who made it (Settings, coach name), so notes that arrived without a name can be credited. */
+  coachName?: string;
   files: Record<string, { sha256: string; bytes: number; records: number }>;
 }
 
@@ -56,7 +58,7 @@ export async function buildBackup(appVersion: string, database: DugoutLabDB = de
   const settings = await database.settings.get('settings');
   files['settings.json'] = json(settings ?? null);
   counts['settings.json'] = settings ? 1 : 0;
-  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), files: {} };
+  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), coachName: (await database.settings.get('settings'))?.coachName || undefined, files: {} };
   for (const [name, bytes] of Object.entries(files)) manifest.files[name] = { sha256: await sha256Hex(bytes), bytes: bytes.length, records: counts[name] ?? 0 };
   files['manifest.json'] = json(manifest);
   const bytes = zipSync(files, { level: 6 });
@@ -88,7 +90,7 @@ export async function buildCoachPack(appVersion: string, teamId: string, databas
     'parentUpdates.json': json([]),
     'settings.json': json(null)
   };
-  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), files: {} };
+  const manifest: BackupManifest = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, appVersion, createdAt: nowIso(), coachName: (await database.settings.get('settings'))?.coachName || undefined, files: {} };
   for (const [name, bytes] of Object.entries(files)) manifest.files[name] = { sha256: await sha256Hex(bytes), bytes: bytes.length, records: name === 'settings.json' ? 0 : (JSON.parse(strFromU8(bytes)) as unknown[]).length };
   files['manifest.json'] = json(manifest);
   const stamp = manifest.createdAt.slice(0, 10);
@@ -140,20 +142,46 @@ export interface RestoreReport {
 
 /** Fields a coach pack strips. A newer copy from another phone never erases them. */
 const PRIVATE_PLAYER_FIELDS = ['parents', 'share', 'responseNotes', 'confidenceNotes', 'selfReflection'] as const;
-function keepPrivate(cur: any, incoming: any): any {
-  const out = { ...incoming };
-  for (const f of PRIVATE_PLAYER_FIELDS) if (out[f] === undefined && cur[f] !== undefined) out[f] = cur[f];
-  return out;
-}
-
 function stamp(r: any): string {
   return r.updatedAt ?? r.ts ?? r.createdAt ?? '';
+}
+
+const UNION_LIST_FIELDS = ['cues', 'strengths', 'challenges', 'approaches', 'positions', 'nicknames'] as const;
+
+/**
+ * Two coaches edit the same kid on different days. Whole-record "newer wins" would erase the
+ * older coach's goal or cue, so the lists that grow are unioned (newer order first, then what
+ * only the older copy had), goals are merged by id, and per-area levels and statuses keep an
+ * area the newer copy never set. Scalars still follow the newer record; private fields stay put.
+ */
+export function mergePlayer(cur: any, incoming: any): any {
+  const newer = stamp(incoming) >= stamp(cur) ? incoming : cur;
+  const older = newer === incoming ? cur : incoming;
+  const out: any = { ...older, ...newer };
+  for (const f of UNION_LIST_FIELDS) {
+    const a: unknown[] = newer[f] ?? [];
+    const b: unknown[] = older[f] ?? [];
+    const key = (x: unknown) => (typeof x === 'string' ? x.trim().toLowerCase() : JSON.stringify(x));
+    const seen = new Set(a.map(key));
+    out[f] = [...a, ...b.filter((x) => !seen.has(key(x)))];
+  }
+  const goals = new Map<string, any>();
+  for (const g of older.goals ?? []) goals.set(g.id, g);
+  for (const g of newer.goals ?? []) goals.set(g.id, g);
+  out.goals = [...goals.values()];
+  out.levels = { ...(older.levels ?? {}), ...(newer.levels ?? {}) };
+  out.statuses = { ...(older.statuses ?? {}), ...(newer.statuses ?? {}) };
+  for (const f of PRIVATE_PLAYER_FIELDS) if (cur[f] !== undefined) out[f] = cur[f];
+  out.updatedAt = newer.updatedAt ?? out.updatedAt;
+  return out;
 }
 
 export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'replace', database: DugoutLabDB = defaultDb): Promise<RestoreReport> {
   const report: RestoreReport = { mode, added: {}, updated: {}, unchanged: {}, keptNewerHere: [] };
   const tables = [database.teams, database.players, database.drills, database.variants, database.practices, database.observations, database.throwing, database.parentUpdates, database.settings];
+  const sender = contents.manifest.coachName;
   await database.transaction('rw', tables, async () => {
+    const localSettings = await database.settings.get('settings');
     if (mode === 'replace') for (const t of tables) await t.clear();
     for (const t of TABLES) {
       const incoming: any[] = (contents as any)[t] ?? [];
@@ -161,13 +189,19 @@ export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'r
       let added = 0;
       let updated = 0;
       let unchanged = 0;
-      for (const rec of incoming) {
+      for (let rec of incoming) {
+        // A note that left a phone with no coach name set is credited to whoever sent the file.
+        if (t === 'observations' && !rec.by && sender) rec = { ...rec, by: sender };
         const cur = mode === 'replace' ? undefined : await table.get(rec.id);
         if (!cur) {
           await table.put(rec);
           added += 1;
-        } else if (stamp(rec) > stamp(cur)) {
-          await table.put(t === 'players' ? keepPrivate(cur, rec) : rec);
+        } else if (t === 'players') {
+          const merged = mergePlayer(cur, rec);
+          if (JSON.stringify(merged) !== JSON.stringify(cur)) { await table.put(merged); updated += 1; } else unchanged += 1;
+          if (stamp(rec) < stamp(cur)) report.keptNewerHere.push({ table: t, id: rec.id, here: stamp(cur), backup: stamp(rec) });
+        } else if (stamp(rec) > stamp(cur) || (t === 'observations' && !cur.by && rec.by)) {
+          await table.put(rec);
           updated += 1;
         } else if (stamp(rec) < stamp(cur)) {
           report.keptNewerHere.push({ table: t, id: rec.id, here: stamp(cur), backup: stamp(rec) });
@@ -178,9 +212,19 @@ export async function restoreBackup(contents: BackupContents, mode: 'merge' | 'r
       report.updated[t] = updated;
       report.unchanged[t] = unchanged;
     }
-    if (contents.settings) {
-      const cur = await database.settings.get('settings');
-      if (!cur || mode === 'replace') await database.settings.put(contents.settings);
+    // Settings: a replace takes the backup's settings but never another coach's name or PIN;
+    // a merge keeps local settings. Either way the phone ends up pointed at a team it actually has.
+    let next: any = mode === 'replace' ? (contents.settings ? { ...contents.settings } : { ...(localSettings ?? {}) }) : { ...(localSettings ?? {}) };
+    if (mode === 'replace') {
+      next.coachName = localSettings?.coachName || undefined;
+      next.pinHash = localSettings?.pinHash;
+      next.pinSalt = localSettings?.pinSalt;
+      next.tourSeenAt = localSettings?.tourSeenAt ?? next.tourSeenAt;
+    }
+    if (Object.keys(next).length) {
+      const teams = await database.teams.toArray();
+      if (teams.length && !teams.some((tm) => tm.id === next.teamId)) next.teamId = (contents.teams?.[0]?.id && teams.some((tm) => tm.id === contents.teams[0].id)) ? contents.teams[0].id : teams[0].id;
+      await database.settings.put({ ...next, id: 'settings' });
     }
   });
   return report;

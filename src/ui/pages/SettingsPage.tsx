@@ -181,7 +181,7 @@ export function SettingsPage() {
       {teamSheet && <TeamSheet mode={teamSheet} team={teamSheet === 'edit' ? team : undefined} onClose={() => setTeamSheet(null)} onSaved={() => { setTeamSheet(null); toast.show('Saved'); }} />}
       {restore && (
         <Sheet title="Restore from backup" onClose={() => setRestore(null)}>
-          <div className="small">Backup from {new Date(restore.contents.manifest.createdAt).toLocaleString()} (app {restore.contents.manifest.appVersion}). {Object.entries(restore.contents.manifest.files).filter(([n]) => n !== 'settings.json').map(([n, f]) => `${f.records} ${n.replace('.json', '')}`).join(', ')}.</div>
+          <div className="small">{restore.contents.manifest.coachName ? `From ${restore.contents.manifest.coachName}, ` : 'Backup from '}{new Date(restore.contents.manifest.createdAt).toLocaleString()} (app {restore.contents.manifest.appVersion}). {Object.entries(restore.contents.manifest.files).filter(([n]) => n !== 'settings.json' && n !== 'manifest.json').map(([n, f]) => `${f.records} ${n.replace('.json', '').replace('parentUpdates', 'parent updates')}`).join(', ')}.</div>
           {!restore.report ? (
             <div className="col" style={{ marginTop: 12 }}>
               <button className="btn primary block" onClick={async () => { const report = await restoreBackup(restore.contents, 'merge'); setRestore({ ...restore, report }); }}>Merge into this device (safe)</button>
@@ -191,7 +191,10 @@ export function SettingsPage() {
           ) : (
             <div style={{ marginTop: 12 }}>
               <div className="banner info small">Done ({restore.report.mode}). Added: {Object.entries(restore.report.added).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(', ') || 'nothing'}. Updated: {Object.entries(restore.report.updated).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(', ') || 'nothing'}.</div>
-              {restore.report.keptNewerHere.length > 0 && <div className="small muted" style={{ marginTop: 6 }}>{restore.report.keptNewerHere.length} record{restore.report.keptNewerHere.length > 1 ? 's were' : ' was'} newer on this device and kept as is.</div>}
+              {restore.report.keptNewerHere.length > 0 && <div className="small muted" style={{ marginTop: 6 }}>{restore.report.keptNewerHere.length} record{restore.report.keptNewerHere.length > 1 ? 's were' : ' was'} newer on this device; lists like goals and cues were combined, nothing was thrown away.</div>}
+              {!settings.coachName && (
+                <div className="field" style={{ marginTop: 10 }}><label>Your first name, so your notes carry it</label><TextSetting value="" placeholder="Aaron" onSave={(v) => saveSettings({ coachName: v || undefined })} /></div>
+              )}
               <button className="btn primary block" style={{ marginTop: 10 }} onClick={() => { setRestore(null); nav('/today'); }}>Done</button>
             </div>
           )}

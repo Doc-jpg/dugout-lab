@@ -214,3 +214,51 @@ describe('two coaches, one practice: notes from two phones merge without loss', 
     asst.close();
   });
 });
+
+describe('two coaches editing the same kid on different days do not erase each other', () => {
+  it('goals, cues and levels from both phones survive a merge in either direction; unattributed notes get the sender\'s name', async () => {
+    const { DEFAULT_SETTINGS } = await import('../src/engine/types');
+    const { buildCoachPack } = await import('../src/io/backup');
+    const head = new DugoutLabDB(`head2-${Math.random().toString(36).slice(2)}`);
+    const asst = new DugoutLabDB(`asst2-${Math.random().toString(36).slice(2)}`);
+    await seedLibrary(head);
+    await head.settings.put({ ...DEFAULT_SETTINGS, coachName: 'Deren', pinHash: 'h', pinSalt: 's' });
+    await createTeam({ id: 't', name: 'Rattlers', ageGroup: '13U' }, head);
+    await createPlayer({ id: 'j', teamId: 't', firstName: 'Johnny', lastName: 'Q', cues: ['Stay down'], responseNotes: 'private' }, head);
+    // Assistant gets the pack on a fresh phone with no settings at all
+    await restoreBackup(await readBackup((await buildCoachPack('0.3.0', 't', head)).bytes), 'replace', asst);
+    const asstSettings = await asst.settings.get('settings');
+    expect(asstSettings?.teamId).toBe('t');
+    expect(asstSettings?.pinHash).toBeUndefined();
+    expect(asstSettings?.coachName).toBeUndefined();
+    // Tuesday: head coach adds a goal. Thursday: assistant adds a cue and sets a level (his record is newer).
+    await updatePlayer('j', { goals: [{ id: 'g1', category: 'infield', text: 'Backhand footwork', kind: 'technical', status: 'active', createdAt: ts }] }, head);
+    await new Promise((r) => setTimeout(r, 5));
+    await updatePlayer('j', { cues: ['Stay down', 'Glove out front'], levels: { infield: 3 } }, asst);
+    await asst.observations.put({ id: 'o-noname', playerId: 'j', read: 'got_it', source: 'practice', ts: nowIso(), createdAt: nowIso() } as any);
+    // Assistant's backup merged into the head coach's phone: the goal must survive even though his record is newer
+    await restoreBackup(await readBackup((await buildBackup('0.3.0', asst)).bytes), 'merge', head);
+    const j = await head.players.get('j');
+    expect(j?.goals.map((g) => g.id)).toEqual(['g1']);
+    expect(j?.cues).toEqual(['Stay down', 'Glove out front']);
+    expect(j?.levels.infield).toBe(3);
+    expect(j?.responseNotes).toBe('private');
+    // And the other direction: head coach's pack merged into the assistant's phone keeps his cue and level
+    await restoreBackup(await readBackup((await buildCoachPack('0.3.0', 't', head)).bytes), 'merge', asst);
+    const ja = await asst.players.get('j');
+    expect(ja?.goals.map((g) => g.id)).toEqual(['g1']);
+    expect(ja?.cues).toContain('Glove out front');
+    expect(ja?.levels.infield).toBe(3);
+    // A note saved with no coach name set gets the name from the backup it came in on
+    await asst.settings.put({ ...(asstSettings ?? DEFAULT_SETTINGS), coachName: 'Aaron' });
+    await restoreBackup(await readBackup((await buildBackup('0.3.0', asst)).bytes), 'merge', head);
+    expect((await head.observations.get('o-noname'))?.by).toBe('Aaron');
+    // Replacing the head coach's phone from the assistant's full backup keeps the head coach's own name and PIN
+    await restoreBackup(await readBackup((await buildBackup('0.3.0', asst)).bytes), 'replace', head);
+    const hs = await head.settings.get('settings');
+    expect(hs?.coachName).toBe('Deren');
+    expect(hs?.pinHash).toBe('h');
+    head.close();
+    asst.close();
+  });
+});

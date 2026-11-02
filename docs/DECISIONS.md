@@ -93,3 +93,11 @@ Rollback: branch `rollback/pre-audit-2026-11-02` (commit 31b9880). Restore by po
 - Speech uses the browser's recognition (Safari and Chrome send audio to Apple or Google), so it needs a signal and the mic permission. With neither, the keyboard mic still dictates into the same box, which the FAQ says. Stored audio clips stay on the roadmap.
 - Tour: nine stops on the real screens with the real element lit, offered once on Today, from the last setup step, and from Help any time. It navigates to the latest open practice for the plan stops and falls back to the list.
 - Tests: tests/notes.test.ts (7) and new acceptance checks (typed note guessing who, read and area; a slip marked as a maybe; nine tour stops; FAQ search). 90 unit tests, 63 browser checks.
+
+## 2026-11-02, two coaches, two phones: no overwriting, attribution always, Android
+
+- Deren is fine with two copies that reconcile by file, as long as nothing is written over, nothing has to be entered twice, and every note says whose it is. Checked the merge rather than assuming: it was whole-record newer-wins, so a goal he added Tuesday would have been erased by a cue Aaron added Thursday. A test now proves that case both directions.
+- Fix: `mergePlayer` combines lists that grow (goals by id, cues, strengths, challenges, approaches, positions, nicknames), keeps a level or status the newer copy never set, and still lets the newer record win on plain fields. Private fields never leave the head coach's phone. Observations are append-only by id and never overwrite.
+- Attribution: every backup and coach pack carries the sender's coach name in the manifest; a note that left a phone before the coach typed his name is credited to the sender on merge, and the restore screen asks for the name if it is still blank. The restore sheet says "From Aaron, Nov 2".
+- A fresh phone restoring a coach pack now ends up pointed at the team; a Replace restore never imports another coach's name, PIN or tour flag.
+- Android: the app is a plain web app, which is the point. Both browser walkthroughs run green as a Pixel 5 (Chromium, the engine Android Chrome uses) and as an iPhone 13. The install path, share sheet, file picker and speech recognition are all standard on Android Chrome. Real-device checks still pending on both platforms.
