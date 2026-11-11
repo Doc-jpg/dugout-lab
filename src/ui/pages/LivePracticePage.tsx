@@ -3,10 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { usePractice, useGeneratorContext, usePlayerMap, useDrills, useObservations, useOnline } from '../hooks';
 import { savePractice, updatePractice, playerName, addObservation } from '../../db/db';
 import { regenerateStation, adjustPractice, setStationProgression } from '../../engine/generator';
-import { nowIso, type Practice, type Observation, type Category } from '../../engine/types';
+import { nowIso, stationCategory, type Practice, type Observation, type Category } from '../../engine/types';
 import { StationCard } from '../components/StationCard';
 import { Sheet, useToast } from '../components/Sheet';
 import { SmartNoteSheet, TalkBox, READ_LABEL } from '../components/SmartNote';
+import { NarrateSheet } from '../components/NarrateSheet';
 export { READ_LABEL };
 
 /**
@@ -27,6 +28,7 @@ export function LivePracticePage() {
   const [stationIdx, setStationIdx] = useState(0);
   const [note, setNote] = useState<{ playerId: string } | null>(null);
   const [freeNote, setFreeNote] = useState(false);
+  const [narrate, setNarrate] = useState(false);
   const [swap, setSwap] = useState(false);
   const [tick, setTick] = useState(0);
   const drillMap = useMemo(() => new Map(drills.map((d) => [d.id, d])), [drills]);
@@ -106,6 +108,7 @@ export function LivePracticePage() {
         <button className="btn ghost sm" onClick={() => nav(`/practices/${practice.id}`)}>‹ Plan</button>
         <div className="row">
           {!online && <span className="pill">Offline, saving on phone</span>}
+          <button className="btn" onClick={() => setNarrate(true)}>Narrate</button>
           <button className="btn" data-tour="live-note" onClick={() => setFreeNote(true)}>+ Note</button>
           <button className="btn" onClick={() => nav(`/practices/${practice.id}/recap`)}>Finish</button>
         </div>
@@ -157,6 +160,7 @@ export function LivePracticePage() {
           <QuickText onSave={(t) => quick(note.playerId, 'note', t)} />
         </Sheet>
       )}
+      {narrate && <NarrateSheet players={[...hereIds, ...practice.inputs.presentIds.filter((id) => !hereIds.includes(id))].map((id) => players.get(id)!).filter(Boolean)} practiceId={practice.id} drillId={station?.drillId} drillName={station ? (station.nameOverride || drills.find((d) => d.id === station.drillId)?.name) : undefined} category={station ? (stationCategory(station) ?? drills.find((d) => d.id === station.drillId)?.category) : undefined} onClose={() => setNarrate(false)} onSaved={(n, k) => { setNarrate(false); toast.show(`${n} note${n === 1 ? '' : 's'} saved for ${k} kid${k === 1 ? '' : 's'}`); }} />}
       {freeNote && <SmartNoteSheet players={[...hereIds, ...practice.inputs.presentIds.filter((id) => !hereIds.includes(id))].map((id) => players.get(id)!).filter(Boolean)} title="Note: say it or type it" source="practice" practiceId={practice.id} onClose={() => setFreeNote(false)} onSaved={(pid) => { setFreeNote(false); toast.show(`Saved for ${playerName(players.get(pid), 'first')}`); }} />}
       {swap && (
         <Sheet title="Fix this station" onClose={() => setSwap(false)}>

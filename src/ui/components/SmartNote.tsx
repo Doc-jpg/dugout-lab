@@ -22,46 +22,60 @@ function recognitionClass(): (new () => Recognition) | undefined {
  * (Safari and Chrome; it sends audio to Apple or Google to transcribe, so it needs a signal).
  * Without it, the keyboard's own mic key still dictates into the box.
  */
-export function useSpeech(onText: (finalText: string, interim: string) => void) {
+export function useSpeech(onText: (finalText: string, interim: string) => void, opts: { keepAlive?: boolean } = {}) {
   const supported = useMemo(() => Boolean(recognitionClass()), []);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const rec = useRef<Recognition | null>(null);
-  const stop = () => { try { rec.current?.stop(); } catch { /* already stopped */ } setListening(false); };
-  const start = () => {
+  const want = useRef(false);
+  const acc = useRef('');
+  const stop = () => { want.current = false; try { rec.current?.stop(); } catch { /* already stopped */ } setListening(false); };
+  const launch = () => {
     const Cls = recognitionClass();
     if (!Cls) return;
-    setError(null);
     const r = new Cls();
     r.continuous = true;
     r.interimResults = true;
     r.lang = navigator.language || 'en-US';
-    let finalText = '';
     r.onresult = (e: any) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const chunk = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalText += (finalText ? ' ' : '') + chunk.trim();
+        if (e.results[i].isFinal) acc.current += (acc.current ? ' ' : '') + chunk.trim();
         else interim += chunk;
       }
-      onText(finalText, interim);
+      onText(acc.current, interim);
     };
-    r.onerror = (e: any) => { setError(e?.error === 'not-allowed' ? 'Microphone is off for this app. Allow it in Settings, Safari (or Chrome), Microphone.' : e?.error === 'network' ? 'No signal for speech right now. Type it, or use the mic on the keyboard.' : 'Could not hear that. Try again or type it.'); setListening(false); };
-    r.onend = () => setListening(false);
+    r.onerror = (e: any) => {
+      // A pause is not an error when the coach is narrating a drill; the recognizer is restarted below.
+      if (opts.keepAlive && (e?.error === 'no-speech' || e?.error === 'aborted')) return;
+      want.current = false;
+      setError(e?.error === 'not-allowed' ? 'Microphone is off for this app. Allow it in Settings, Safari (or Chrome), Microphone.' : e?.error === 'network' ? 'No signal for speech right now. Type it, or use the mic on the keyboard.' : 'Could not hear that. Try again or type it.');
+      setListening(false);
+    };
+    // Phones end recognition after a few quiet seconds. In keep-alive mode pick straight back up until the coach taps stop.
+    r.onend = () => { if (want.current && opts.keepAlive) { try { launch(); return; } catch { /* fall through */ } } want.current = false; setListening(false); };
     rec.current = r;
-    try { r.start(); setListening(true); } catch { setError('Could not start the microphone.'); }
+    r.start();
   };
-  useEffect(() => () => { try { rec.current?.abort(); } catch { /* fine */ } }, []);
+  const start = () => {
+    if (!recognitionClass()) return;
+    setError(null);
+    acc.current = '';
+    want.current = true;
+    try { launch(); setListening(true); } catch { want.current = false; setError('Could not start the microphone.'); }
+  };
+  useEffect(() => () => { want.current = false; try { rec.current?.abort(); } catch { /* fine */ } }, []);
   return { supported, listening, error, start, stop, toggle: () => (listening ? stop() : start()) };
 }
 
 /** Text box with a tap-to-talk button. The parent owns the text. */
-export function TalkBox({ value, onChange, placeholder, autoFocus, rows = 2 }: { value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; rows?: number }) {
+export function TalkBox({ value, onChange, placeholder, autoFocus, rows = 2, keepAlive }: { value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean; rows?: number; keepAlive?: boolean }) {
   const base = useRef(value);
   const speech = useSpeech((finalText, interim) => {
     const b = base.current.trim();
     onChange([b, finalText, interim].filter(Boolean).join(' '));
-  });
+  }, { keepAlive });
   const begin = () => { base.current = value; speech.start(); };
   return (
     <div>
@@ -70,7 +84,7 @@ export function TalkBox({ value, onChange, placeholder, autoFocus, rows = 2 }: {
         {speech.supported && (
           <button type="button" className={`btn talk ${speech.listening ? 'on' : ''}`} onClick={() => (speech.listening ? speech.stop() : begin())} aria-pressed={speech.listening} aria-label={speech.listening ? 'Stop listening' : 'Tap to talk'}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" /></svg>
-            <span>{speech.listening ? 'Listening' : 'Talk'}</span>
+            <span>{speech.listening ? (keepAlive ? 'Tap to stop' : 'Listening') : 'Talk'}</span>
           </button>
         )}
       </div>

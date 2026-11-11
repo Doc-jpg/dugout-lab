@@ -90,6 +90,7 @@ export function HelpPage() {
       <div className="card">
         <h2>Small things that save time</h2>
         <ul className="step-list small">
+          <li><strong>Narrate</strong>: on the live screen (or Today), talk through a whole drill, name first, then what happened, next name. Done cuts it into a rep per kid with the details and asks if that is what you meant before saving.</li>
           <li><strong>Limits</strong>: on a player's page, "Not today" sets no throwing, no hitting or no running for a stretch. Every plan honors it until the date you set.</li>
           <li><strong>Use this plan again</strong>: at the bottom of any plan. The drills stay, the objectives are rebuilt for who is here that day.</li>
           <li><strong>Groups</strong>: in a plan, Adjust, Move a player, to move a kid between groups for a block.</li>

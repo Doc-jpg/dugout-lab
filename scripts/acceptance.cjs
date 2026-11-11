@@ -160,6 +160,27 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await page.locator('.sheet-head >> role=button[name="Close"]').click();
   await page.waitForSelector('.sheet', { state: 'detached' });
 
+  // Narrate a drill: one long dictation cut into a rep per kid, reviewed, then saved
+  await page.getByRole('button', { name: 'Narrate a drill' }).click();
+  await page.waitForSelector('text=Done, sort it out');
+  expect('narrate shows the say-it-in-this-order prompts', /Name[\s\S]*Fielding[\s\S]*Transfer[\s\S]*Throw[\s\S]*Next kid/.test(await page.locator('.narrate-prompts').innerText()), true);
+  await page.locator('.sheet textarea').fill('Jonah clean backhand quick transfer strong throw on target. Sam bobbled the forehand and the throw was high. Jona charged it clean. Theo missed it');
+  await settle(300);
+  expect('narrate counts reps as they are heard', /4 reps heard: Jonah P\., Sam \w+\., Theo/.test(await page.locator('.sheet').innerText()), true);
+  await page.getByRole('button', { name: 'Done, sort it out' }).click();
+  await page.waitForSelector('text=Is this what you meant?');
+  const repCards = page.locator('.card.rep');
+  expect('four reps to review', await repCards.count(), 4);
+  expect('first rep has the details', /Fielded clean[\s\S]*Backhand[\s\S]*Quick transfer[\s\S]*Throw on target[\s\S]*Strong throw/.test(await repCards.nth(0).innerText()), true);
+  expect('first rep read is Got it', await repCards.nth(0).locator('select').inputValue(), 'got_it');
+  expect('second rep read is Struggled', await repCards.nth(1).locator('select').inputValue(), 'struggled');
+  expect('a speech slip is a maybe to confirm', /Maybe Jonah/.test(await repCards.nth(2).innerText()), true);
+  await repCards.nth(2).getByRole('button', { name: /^Yes, Jonah/ }).click();
+  await repCards.nth(3).getByRole('button', { name: 'Drop' }).click();
+  await page.getByRole('button', { name: 'Save 3 notes' }).click();
+  await page.waitForSelector('.sheet', { state: 'detached' });
+  expect('narration saved toast', /3 notes saved for 2 kids/.test(await body()), true);
+
   // Guided tour: nine stops on the real screens, then it stops offering itself
   expect('tour offered on Today', /New here\?/.test(await body()), true);
   await page.getByRole('button', { name: 'Take the tour' }).click();

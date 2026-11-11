@@ -155,6 +155,7 @@ export function PlayerPage() {
               <div key={o.id} className="item small" style={{ alignItems: 'flex-start' }}>
                 <div className="grow">
                   <div><strong>{READ_LABEL[o.read]}</strong>{o.category ? ` · ${CATEGORY_LABEL[o.category]}` : ''}{o.source === 'game' ? ' · game' : ''}{o.drillId ? ` · ${drills.find((d) => d.id === o.drillId)?.name ?? ''}` : ''}</div>
+                  {o.tags?.length ? <div className="note-tags">{o.tags.map((t) => <span key={t} className="t">{t}</span>)}</div> : null}
                   {o.text && <div>{o.text}</div>}
                   <div className="muted">{timeAgo(o.ts)}{o.by ? ` · ${o.by}` : ''}</div>
                 </div>

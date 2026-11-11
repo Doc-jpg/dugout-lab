@@ -9,6 +9,7 @@ import { throwingFlags } from '../../engine/pitchsmart';
 import { CATEGORY_LABEL, CATEGORIES, today, teamAgeGroup, type Category, type Observation } from '../../engine/types';
 import { useToast } from '../components/Sheet';
 import { SmartNoteSheet } from '../components/SmartNote';
+import { NarrateSheet } from '../components/NarrateSheet';
 import { TourOffer } from '../components/Tour';
 import { syncNow } from '../../io/sync';
 import { programName } from '../../engine/brand';
@@ -27,6 +28,7 @@ export function TodayPage() {
   const toast = useToast();
   const [health, setHealth] = useState<StorageHealth | null>(null);
   const [gameNote, setGameNote] = useState<false | 'game' | 'quick'>(false);
+  const [narrate, setNarrate] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     storageHealth().then(setHealth);
@@ -141,6 +143,7 @@ export function TodayPage() {
           <div className="row wrap" style={{ marginTop: 12 }}>
             <button className="btn" data-tour="note" onClick={() => setGameNote('quick')}>+ Note</button>
             <button className="btn" onClick={() => setGameNote('game')}>+ Game note</button>
+            <button className="btn" onClick={() => setNarrate(true)}>Narrate a drill</button>
             <button className="btn" onClick={() => nav('/practices/new')}>+ New practice</button>
             <button className="btn" onClick={() => nav('/parents')}>Parent updates{due.length ? ` (${due.length} due)` : ''}</button>
           </div>
@@ -164,6 +167,7 @@ export function TodayPage() {
 
       {health && health.verdict === 'install' && <div className="banner warn" style={{ marginTop: 12 }}>{health.message}</div>}
 
+      {narrate && team && <NarrateSheet players={players} source="quick" onClose={() => setNarrate(false)} onSaved={(n, k) => { setNarrate(false); toast.show(`${n} note${n === 1 ? '' : 's'} saved for ${k} kid${k === 1 ? '' : 's'}`); }} />}
       {gameNote && team && <SmartNoteSheet players={players} source={gameNote} onClose={() => setGameNote(false)} onSaved={(pid) => { setGameNote(false); toast.show(`${gameNote === 'game' ? 'Game note' : 'Note'} saved for ${playerName(players.find((p) => p.id === pid), 'first')}`); }} />}
       {toast.el}
     </div>
