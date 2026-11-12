@@ -129,3 +129,7 @@ Deren asked for the Athletic Lab sync design applied to coaches: named invite li
 - Dictation keeps listening through pauses (`useSpeech` keep-alive restarts the recognizer when the phone ends it) until the coach taps stop. Needs a signal like the Talk button; the keyboard mic works without one.
 - Open, for the real-phone pass: how well iPhone dictation holds up outdoors with wind and kids, and whether it capitalizes roster names reliably. Next step if this gets used: per-kid tallies from the tags (backhand 3 of 5 clean) on Progress.
 - Tests: tests/narrate.test.ts (6) and nine new browser checks.
+
+## 2026-11-11, keepalive made nightly and self-sustaining
+
+Supabase warned Deren that his family-history project would pause for inactivity (that one was a skipped workflow, fixed in its own repo the same day). He asked that the same never happen here. The keepalive now runs every night about 2:23 AM Central instead of every three days, and does a real write and read-back in a throwaway keepalive team rather than an empty read, plus a read of Athletic Lab's table. Because GitHub turns off schedules in a repo with no commits for 60 days, the job commits `.github/heartbeat` whenever the last commit is three weeks old. A red run means the database did not answer; restore it from the dashboard.

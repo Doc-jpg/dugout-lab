@@ -1,22 +1,66 @@
-# The sync database is a free Supabase project shared with Athletic Lab, which pauses after a week
-# with no traffic. This pings Dugout Lab's table every three days so it stays awake. A failing run
-# means it paused anyway; restoring it is one click at https://supabase.com/dashboard/project/kdulamsgpgozryacmhok
+# The sync database is a free Supabase project (shared with Athletic Lab, Dad Lab and Dance Lab),
+# which Supabase pauses after about a week without enough activity. This runs every night and does
+# real work against it: one write and two reads in a throwaway "keepalive" team that holds no one's
+# data. It does not depend on anyone opening the app.
+#
+# GitHub turns scheduled workflows off in a repository with no commits for 60 days, so once the
+# last commit is three weeks old this job also commits a one-line heartbeat file to keep itself on.
+#
+# A failing run means the database did not answer (most likely it was paused); restoring it is one
+# click at https://supabase.com/dashboard/project/kdulamsgpgozryacmhok
 name: Keep the sync database awake
 on:
   schedule:
-    - cron: '41 10 */3 * *'
+    - cron: '23 8 * * *'   # every night, about 2:23 AM Central
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   ping:
     runs-on: ubuntu-latest
+    env:
+      BASE: https://kdulamsgpgozryacmhok.supabase.co/rest/v1
+      KEY: sb_publishable_L-BWbmrV7Ss1aRJW_Et0Kg_G0EU0dtB
+      # A team that exists only for this job. These are not secrets worth keeping: the team holds one row.
+      TEAM_KEY: KEEPALIVEKEEPALIVE23
+      COACH_TOKEN: KEEPALIVECOACHTKN234
+      TEAM_ID: ee858581bac5d1275dc7349b2a4bcce086fcc3ce78414acc1eeea71de90eac26
+      TOKEN_HASH: 9eda3d3c20ac441c1895d425e950b750b99c8f62cd7bfc95cdc288be54fb6951
     steps:
-      - name: Ping the dugout_records endpoint
+      - name: Write, then read back
         run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://kdulamsgpgozryacmhok.supabase.co/rest/v1/dugout_records?select=id&limit=1" \
-            -H "apikey: sb_publishable_L-BWbmrV7Ss1aRJW_Et0Kg_G0EU0dtB" \
-            -H "Authorization: Bearer sb_publishable_L-BWbmrV7Ss1aRJW_Et0Kg_G0EU0dtB" \
-            -H "x-team-key: keepalive-ping-0000000000" \
-            -H "x-coach-token: keepalive-ping-0000000000")
-          echo "HTTP $code"
+          set -u
+          H=(-H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -H "x-team-key: $TEAM_KEY" -H "x-coach-token: $COACH_TOKEN")
+          # Make sure the keepalive member exists (201 the first time, 409 after; both fine).
+          curl -s -o /dev/null -X POST "$BASE/dugout_members" "${H[@]}" -H "Prefer: return=minimal" \
+            -d "[{\"team_id\":\"$TEAM_ID\",\"token_hash\":\"$TOKEN_HASH\",\"name\":\"keepalive\",\"head\":true}]" || true
+          now=$(date -u +%FT%TZ)
+          for try in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/dugout_records" "${H[@]}" \
+              -H "Prefer: resolution=merge-duplicates,return=minimal" \
+              -d "[{\"team_id\":\"$TEAM_ID\",\"tbl\":\"keepalive\",\"id\":\"ping\",\"stamp\":\"$now\",\"data\":{\"from\":\"github\"}}]")
+            echo "write: HTTP $code"
+            [ "$code" = "201" ] || [ "$code" = "200" ] && break
+            sleep 20
+          done
+          back=$(curl -s "$BASE/dugout_records?select=stamp&team_id=eq.$TEAM_ID&id=eq.ping" "${H[@]}")
+          echo "read back: $back"
+          echo "$back" | grep -q "$now"
+          # Touch Athletic Lab's table too (a read; its rows stay invisible without a family key).
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/records?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "x-family-key: keepalive-ping-0000000000")
+          echo "athletic records read: HTTP $code"
           test "$code" = "200"
+      - uses: actions/checkout@v4
+      - name: Heartbeat commit when the repository has been quiet for three weeks
+        run: |
+          last=$(git log -1 --format=%ct)
+          age=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "last commit was $age days ago"
+          if [ "$age" -ge 21 ]; then
+            date -u +%FT%TZ > .github/heartbeat
+            git config user.name "keepalive"
+            git config user.email "keepalive@users.noreply.github.com"
+            git add .github/heartbeat
+            git commit -m "Heartbeat so the nightly keepalive stays scheduled"
+            git push
+          fi
