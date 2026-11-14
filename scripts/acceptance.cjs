@@ -23,7 +23,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   await page.waitForSelector('text=Start here');
   await page.click('role=button[name="Set up my team (2 minutes)"]');
   await page.waitForSelector('text=Step 1 of 3');
-  await page.fill('input[placeholder="Rattlers"]', 'Setup Test Team');
+  await page.fill('input[placeholder="Warriors"]', 'Setup Test Team');
   await page.fill('input[placeholder="Deren"]', 'Deren');
   await page.getByRole('button', { name: /^\d{4} \(13U\)$/ }).click();
   await page.click('role=button[name="Next: the roster"]');

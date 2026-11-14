@@ -42,11 +42,18 @@ export function App() {
   // The current team's colors restyle the whole app; no brand means the default navy.
   useEffect(() => {
     const root = document.documentElement;
-    const css = brandCss(team?.brand);
-    for (const k of ['--accent', '--accent-ink', '--brand-accent']) {
-      if (css[k]) root.style.setProperty(k, css[k]);
-      else root.style.removeProperty(k);
-    }
+    const mq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : undefined;
+    const apply = () => {
+      const css = brandCss(team?.brand, Boolean(mq?.matches));
+      for (const k of ['--accent', '--accent-ink', '--brand-accent']) {
+        if (css[k]) root.style.setProperty(k, css[k]);
+        else root.style.removeProperty(k);
+      }
+    };
+    apply();
+    // The phone switching between light and dark re-picks the readable shade.
+    mq?.addEventListener?.('change', apply);
+    return () => mq?.removeEventListener?.('change', apply);
   }, [team?.brand?.primary, team?.brand?.accent]);
   return (
     <LockScreen>

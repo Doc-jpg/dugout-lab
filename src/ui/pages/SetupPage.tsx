@@ -58,7 +58,7 @@ export function SetupPage() {
 
       {step === 1 && (
         <div className="card">
-          <div className="field"><label>Team name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Rattlers" autoFocus /></div>
+          <div className="field"><label>Team name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Warriors" autoFocus /></div>
           <div className="field"><label>Your first name (goes on parent notes as "Coach ...")</label><input className="input" value={coach} onChange={(e) => setCoach(e.target.value)} placeholder="Deren" /></div>
           <div className="field"><label>Graduation year of the kids</label>
             <div className="chips">{years.map((y) => <button key={y} className={`chip sm ${gradYear === y ? 'on' : ''}`} onClick={() => { setGradYear(gradYear === y ? undefined : y); setFixed(undefined); }}>{y} ({ageGroupForClass(y)})</button>)}</div>

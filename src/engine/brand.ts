@@ -106,11 +106,34 @@ export function programName(team?: Team, settings?: Settings): string {
   return team?.brand?.programName?.trim() || team?.name || settings?.appName || 'Dugout Lab';
 }
 
-/** CSS custom properties for the current team. Empty when the team has no brand colors. */
-export function brandCss(brand?: Brand): Record<string, string> {
+/** The app's own dark-mode page color. A brand color has to stay readable on it. */
+export const DARK_BG = '#0e1626';
+
+/** Mix a color toward white until it reads against a background (links, the active tab, button edges). */
+export function lightenToContrast(hex: string, bg: string, min = 4.5): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  let [r, g, b] = rgb;
+  for (let i = 0; i < 20 && contrastRatio(rgbToHex(r, g, b), bg) < min; i++) {
+    r += (255 - r) * 0.1; g += (255 - g) * 0.1; b += (255 - b) * 0.1;
+  }
+  return rgbToHex(r, g, b);
+}
+
+/**
+ * CSS custom properties for the current team. Empty when the team has no brand colors.
+ * In dark mode a dark primary (navy, black, maroon) would vanish into the page, so the app uses the
+ * brand's lighter color instead, lightened as far as it needs to be read.
+ */
+export function brandCss(brand?: Brand, dark = false): Record<string, string> {
   const out: Record<string, string> = {};
   if (brand?.primary && hexToRgb(brand.primary)) {
-    const accent = usableAsAccent(brand.primary);
+    let accent = usableAsAccent(brand.primary);
+    if (dark && contrastRatio(accent, DARK_BG) < 4.5) {
+      const second = brand.accent && hexToRgb(brand.accent) ? brand.accent : undefined;
+      const base = second && contrastRatio(second, DARK_BG) > contrastRatio(accent, DARK_BG) ? second : accent;
+      accent = lightenToContrast(base, DARK_BG, 4.5);
+    }
     out['--accent'] = accent;
     out['--accent-ink'] = inkFor(accent);
   }

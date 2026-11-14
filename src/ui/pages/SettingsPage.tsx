@@ -270,7 +270,7 @@ function TeamSheet({ mode, team, onClose, onSaved }: { mode: 'new' | 'edit'; tea
   const toggle = (c: Category) => setPriorities(priorities.includes(c) ? priorities.filter((x) => x !== c) : [...priorities, c].slice(0, 4));
   return (
     <Sheet title={mode === 'new' ? 'New team' : 'Edit team'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!name.trim()} onClick={async () => { const ag = gradYear ? ageGroupForClass(gradYear) : ageGroup; if (mode === 'new') { const t = await createTeam({ name: name.trim(), shortName: shortName || undefined, ageGroup: ag, gradYear, season: season || undefined, priorities }); await saveSettings({ teamId: t.id }); } else if (team) await updateTeam(team.id, { name: name.trim(), shortName: shortName || undefined, ageGroup: ag, gradYear, season: season || undefined, priorities }); onSaved(); }}>Save</button></>}>
-      <div className="field"><label>Team name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Rattlers 13U" /></div>
+      <div className="field"><label>Team name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Warriors 13U" /></div>
       <div className="inline-fields">
         <div className="field"><label>Short name</label><input className="input" value={shortName} onChange={(e) => setShortName(e.target.value)} /></div>
         <div className="field"><label>Season</label><input className="input" value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Spring 2027" /></div>

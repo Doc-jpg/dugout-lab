@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { paletteFromPixels, suggestPair, inkFor, usableAsAccent, contrastRatio, programName, brandCss, hexToRgb } from '../src/engine/brand';
+import { paletteFromPixels, suggestPair, inkFor, usableAsAccent, contrastRatio, programName, brandCss, hexToRgb, DARK_BG, lightenToContrast } from '../src/engine/brand';
 import { renderScorecardHtml, scorecardFor, parentEmailDraft, homePlanFor, renderHomePlanHtml } from '../src/engine/home';
 import { LIBRARY_DRILLS } from '../src/data/drills';
 import { nowIso, DEFAULT_SETTINGS, ageOf, AGE_GROUPS, seasonYearFor, ageGroupForClass, teamAgeGroup, type Drill, type Player, type Team } from '../src/engine/types';
@@ -73,6 +73,24 @@ describe('brand on screen and on parent pages', () => {
     expect(css['--accent-ink']).toBe('#ffffff');
     expect(css['--brand-accent']).toBe('#f2c14e');
     expect(brandCss(undefined)).toEqual({});
+  });
+  it('a dark navy brand stays readable when the phone is in dark mode', () => {
+    const navy = { primary: '#0d2241', accent: '#286aa5' };
+    // Light mode: the navy itself, white text on it.
+    expect(brandCss(navy)['--accent']).toBe('#0d2241');
+    expect(brandCss(navy)['--accent-ink']).toBe('#ffffff');
+    // Dark mode: navy on the dark page would be invisible, so the lighter brand blue is used and lightened until it reads.
+    expect(contrastRatio('#0d2241', DARK_BG)).toBeLessThan(1.5);
+    const dark = brandCss(navy, true);
+    expect(contrastRatio(dark['--accent'], DARK_BG)).toBeGreaterThanOrEqual(4.5);
+    const [r, , b] = hexToRgb(dark['--accent'])!;
+    expect(b).toBeGreaterThan(r);                                   // still a blue, not a gray
+    expect(contrastRatio(dark['--accent-ink'], dark['--accent'])).toBeGreaterThanOrEqual(4.5);
+    // No second color: the primary itself is lightened.
+    expect(contrastRatio(brandCss({ primary: '#111111' }, true)['--accent'], DARK_BG)).toBeGreaterThanOrEqual(4.5);
+    // A color that already reads on dark is left alone.
+    expect(brandCss({ primary: '#f2c14e' }, true)['--accent']).toBe(brandCss({ primary: '#f2c14e' })['--accent']);
+    expect(lightenToContrast('nonsense', DARK_BG)).toBe('nonsense');
   });
   it('scorecard and home plan carry logo, name, colors, coaches and footer', () => {
     const brand = { team, settings: DEFAULT_SETTINGS, coachName: 'Deren' };
