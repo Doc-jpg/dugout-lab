@@ -45,6 +45,7 @@ export function HelpPage() {
           <li><strong>Practices</strong>: plan a new one, open a plan, see finished ones with their recap.</li>
           <li><strong>Players</strong>: the roster. Each profile answers: what does he need today, what did we do last time, what worked, what to try next.</li>
           <li><strong>Drills</strong>: the library plus your own. Any drill can get a version for one player (same station, different job).</li>
+          <li><strong>Diagrams</strong>: drills tagged "diagram" have a picture of who stands where, who moves and where the ball goes. Tap Play the steps to watch it, or tap a number to stop on one step. In a plan, open the station and tap Show the diagram.</li>
           <li><strong>Progress</strong>: your own level assessments by area, due-for-review checks, suggestions, attendance. No rankings.</li>
         </ol>
       </div>

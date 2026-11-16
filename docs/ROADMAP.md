@@ -31,6 +31,6 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 - Pricing thought (not built): per program per season, with the drill library and parent pages as the value; keep the offline, no-account core free for a single coach.
 
 ## Housekeeping
-- Hero Digitals feature list could not be verified (site blocked to fetches); revisit.
+- Done 2026-11-16: compared with the Hero Digitals coaching product from Deren's screenshots; took the one real gap, drill diagrams (28 of 110 so far, v0.7.0). Next: the rest of the library where a picture helps, diagrams on the printed plan, a coach drawing his own.
 - Consider shifting a few warm-up drills from blocked to variable to balance the library's style mix.
 - tests/library.test.ts gates the library: 110 drills, extras on every drill, no weighted-ball, max-velocity or headfirst-dive content, audit fixes stay applied.

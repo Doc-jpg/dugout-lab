@@ -1,7 +1,7 @@
 {
   "name": "dugout-lab",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.7.0",
   "type": "module",
   "description": "Dugout Lab: personalized youth baseball practice planning and player development, offline-first",
   "scripts": {
@@ -11,7 +11,8 @@
     "serve": "node server.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "diagrams": "esbuild scripts/diagram-gallery.tsx --bundle --platform=node --format=cjs --outfile=node_modules/.cache/diagram-gallery.cjs --log-level=warning && node node_modules/.cache/diagram-gallery.cjs scripts/shots/diagrams && node scripts/diagram-shots.cjs scripts/shots/diagrams"
   },
   "dependencies": {
     "dexie": "^4.0.10",

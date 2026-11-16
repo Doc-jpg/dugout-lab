@@ -4,6 +4,8 @@ import { useDrill, useVariants, useCurrentTeam, usePlayers } from '../hooks';
 import { updateDrill, duplicateDrill, saveVariant, playerName, deleteVariant } from '../../db/db';
 import { CATEGORY_LABEL, BLOCK_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, LEVEL_LABEL, STYLE_WORD, THROWING_LOAD_WORD, type DrillVariant } from '../../engine/types';
 import { DrillEditor } from '../components/DrillEditor';
+import { DrillDiagram } from '../components/DrillDiagram';
+import { diagramFor } from '../../data/diagrams';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 
 /** One drill in full, plus every player's saved version of it. */
@@ -20,6 +22,7 @@ export function DrillPage() {
   const [archive, setArchive] = useState(false);
   if (!d) return <div className="empty">Drill not found.</div>;
   const pn = (id?: string) => playerName(players.find((p) => p.id === id), 'short');
+  const picture = diagramFor(d);
 
   return (
     <div>
@@ -35,6 +38,12 @@ export function DrillPage() {
       <div className="card" style={{ marginTop: 10 }}>
         <div><strong>Goal:</strong> {d.objective}</div>
         <div className="small muted" style={{ marginTop: 4 }}><strong>Setup:</strong> {d.setup}</div>
+        {picture && (
+          <div className="diagram-box">
+            <DrillDiagram diagram={picture} compact />
+            {d.source === 'custom' && <div className="small muted" style={{ marginTop: 4 }}>This picture is from the original drill. If you changed how your version runs, go by your words.</div>}
+          </div>
+        )}
         <ol className="step-list">{d.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
         <div>{d.cues.map((c) => <span key={c} className="cue">{c}</span>)}</div>
         <div className="small" style={{ marginTop: 8 }}><strong>Got it looks like:</strong> {d.success}</div>

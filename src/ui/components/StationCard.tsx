@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import type { Block, Drill, Player, Station } from '../../engine/types';
 import { playerName } from '../../db/db';
 import { EQUIPMENT_LABEL, stationNote } from '../../engine/types';
+import { DrillDiagram } from './DrillDiagram';
+import { diagramFor } from '../../data/diagrams';
 
 /** One station: the drill, who is coaching, and every player's own objective. */
 export function StationCard({
@@ -19,6 +21,8 @@ export function StationCard({
   highlightIds?: string[];
 }) {
   const [open, setOpen] = useState(expandedProp ?? false);
+  const [showPicture, setShowPicture] = useState(false);
+  const picture = drill ? diagramFor(drill) : undefined;
   const here = new Set(highlightIds ?? []);
   const objectives = [...station.objectives].sort((a, b) => (here.has(b.playerId) ? 1 : 0) - (here.has(a.playerId) ? 1 : 0) || playerName(players.get(a.playerId), 'short').localeCompare(playerName(players.get(b.playerId), 'short')));
   const shown = highlightIds?.length ? objectives.filter((o) => here.has(o.playerId)) : objectives;
@@ -37,6 +41,9 @@ export function StationCard({
             <>
               <div className="small"><strong>Goal:</strong> {drill.objective}</div>
               <div className="small muted" style={{ marginTop: 2 }}>{drill.setup}</div>
+              {picture && (showPicture
+                ? <div className="diagram-box"><DrillDiagram diagram={picture} compact /><button type="button" className="btn ghost sm" style={{ marginTop: 4 }} onClick={() => setShowPicture(false)}>Hide the diagram</button></div>
+                : <button type="button" className="btn sm" style={{ marginTop: 6 }} onClick={() => setShowPicture(true)}>Show the diagram</button>)}
               <ol className="step-list small">{drill.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
               <div>{drill.cues.map((c) => <span key={c} className="cue">{c}</span>)}</div>
               <div className="small muted" style={{ marginTop: 4 }}><strong>Got it looks like:</strong> {drill.success}</div>

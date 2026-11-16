@@ -267,7 +267,8 @@ export async function duplicateDrill(id: string, database: DugoutLabDB = db): Pr
   const d = await database.drills.get(id);
   if (!d) throw new Error('Drill not found');
   const { id: _old, createdAt: _c, updatedAt: _u, ...rest } = d;
-  return createDrill({ ...rest, name: `${d.name} (my version)`, source: 'custom' }, database);
+  // A copy keeps the picture of the drill it came from.
+  return createDrill({ ...rest, name: `${d.name} (my version)`, source: 'custom', diagramId: d.diagramId ?? d.id }, database);
 }
 
 export async function saveVariant(input: Omit<DrillVariant, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }, database: DugoutLabDB = db): Promise<DrillVariant> {

@@ -5,6 +5,7 @@ import { createDrill } from '../../db/db';
 import { CATEGORIES, CATEGORY_LABEL, BLOCK_LABEL, STYLE_WORD, type Category, type BlockKind, type Drill } from '../../engine/types';
 import { DrillEditor } from '../components/DrillEditor';
 import { useToast } from '../components/Sheet';
+import { diagramFor } from '../../data/diagrams';
 
 export function DrillsPage() {
   const drills = useDrills();
@@ -41,7 +42,7 @@ export function DrillsPage() {
         {list.map((d) => (
           <Link key={d.id} to={`/drills/${d.id}`} className="item tappable">
             <div className="grow">
-              <div className="title">{d.name}{d.source === 'custom' ? <span className="pill" style={{ marginLeft: 6 }}>mine</span> : null}{variantCount(d.id) ? <span className="pill" style={{ marginLeft: 6 }}>{variantCount(d.id)} version{variantCount(d.id) > 1 ? 's' : ''}</span> : null}</div>
+              <div className="title">{d.name}{d.source === 'custom' ? <span className="pill" style={{ marginLeft: 6 }}>mine</span> : null}{diagramFor(d) ? <span className="pill" style={{ marginLeft: 6 }}>diagram</span> : null}{variantCount(d.id) ? <span className="pill" style={{ marginLeft: 6 }}>{variantCount(d.id)} version{variantCount(d.id) > 1 ? 's' : ''}</span> : null}</div>
               <div className="sub">{CATEGORY_LABEL[d.category]} · levels {d.levelMin} to {d.levelMax} · {d.minutes} min · {STYLE_WORD[d.style]}{d.decisionHook ? ' · decision' : ''}{d.mentalHook ? ' · mental hook' : ''}</div>
             </div>
             <span className="chev">›</span>

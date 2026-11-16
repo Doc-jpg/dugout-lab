@@ -360,3 +360,7 @@ details.faq summary { cursor: pointer; font-weight: 600; min-height: 32px; displ
 select.input.sm { width: auto; min-height: 36px; padding: 4px 8px; font-size: 13px; }
 .note-tags { display: inline; }
 .note-tags .t { display: inline-block; font-size: 11px; border: 1px solid var(--line); border-radius: 8px; padding: 0 6px; margin: 2px 4px 0 0; }
+
+/* Drill diagrams: the picture brings its own colors, so it reads the same in light and dark and outdoors. */
+.diagram-box { margin: 10px 0 6px; padding: 8px; border: 1px solid var(--line, rgba(128,128,128,0.3)); border-radius: 12px; }
+.diagram svg { touch-action: manipulation; }

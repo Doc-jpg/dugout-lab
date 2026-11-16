@@ -281,6 +281,41 @@ const shot = (page, name) => page.screenshot({ path: path.join(shotsDir, `${name
   expect('version persists after reload', /Field ten clean, then earn the throw[\s\S]*3 x 10/.test(await body()), true);
   await shot(page, '07_drill_version');
 
+  // Drill diagrams: the picture shows on a drill that has one, switches versions, stops on a step, plays, and is absent where there is none
+  await page.goto(URL + '#/drills');
+  await page.waitForSelector('input[placeholder*="Search"]');
+  await page.fill('input[placeholder*="Search"]', 'Double Play Feeds');
+  await settle();
+  expect('drill list tags the drill as having a diagram', /Double Play Feeds\s*diagram/.test(await page.locator('.list .item').first().innerText()), true);
+  await page.locator('.list .item').first().click();
+  await page.waitForSelector('[data-testid="drill-diagram"]');
+  const dia = page.locator('[data-testid="drill-diagram"]');
+  await dia.scrollIntoViewIfNeeded();
+  expect('diagram draws the coach, three fielders', await dia.locator('svg [data-actor]').count(), 4);
+  expect('diagram draws every move of the first version', await dia.locator('svg [data-move]').count(), 4);
+  expect('diagram has a ball', await dia.locator('[data-testid="diagram-ball"]').count(), 1);
+  const box = await dia.locator('svg').first().boundingBox();
+  expect('diagram fits the phone width', box.width <= page.viewportSize().width && box.width > 250, true);
+  await shot(page, '07b_diagram');
+  await dia.getByRole('button', { name: 'Ball to second' }).click();
+  await dia.getByRole('button', { name: 'Step 2' }).click();
+  await settle(200);
+  expect('tapping a step shows that step in words', /2\.\s*Close to the bag he flips underhand/.test(await dia.innerText()), true);
+  expect('later steps are not drawn yet', await dia.locator('svg [data-move]').count(), 3);
+  await shot(page, '07c_diagram_step');
+  await dia.getByRole('button', { name: /Play the steps/ }).click();
+  await page.waitForSelector('[data-testid="drill-diagram"] >> role=button[name="Stop"]');
+  await settle(700);
+  const mid = await dia.locator('[data-testid="diagram-ball"]').boundingBox();
+  await settle(500);
+  const mid2 = await dia.locator('[data-testid="diagram-ball"]').boundingBox();
+  expect('the ball moves while it plays', Math.abs(mid.x - mid2.x) + Math.abs(mid.y - mid2.y) > 1, true);
+  await page.waitForSelector('[data-testid="drill-diagram"] >> role=button[name=/Play the steps/]', { timeout: 15000 });
+  expect('after playing, the whole picture is back', await dia.locator('svg [data-move]').count(), 4);
+  await page.goto(URL + '#/drills/lib-hit-001');
+  await page.waitForSelector('text=Player versions');
+  expect('a drill with no diagram shows none', await page.locator('[data-testid="drill-diagram"]').count(), 0);
+
   // New practice uses the version: generate with infield priority and look for Owen's objective
   await page.goto(URL + '#/practices/new');
   await page.waitForSelector('text=New practice');

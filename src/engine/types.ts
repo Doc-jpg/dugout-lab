@@ -286,6 +286,8 @@ export interface Drill {
   indoorOk: boolean;
   /** What the player should get out of it, one sentence. */
   objective: string;
+  /** A coach's own copy of a library drill: the id of the drill whose picture it keeps. */
+  diagramId?: string;
   setup: string;
   /** Short numbered steps. */
   steps: string[];
