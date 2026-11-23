@@ -185,3 +185,10 @@ Deren sent screenshots of a paid coaching product whose main draw is animated dr
 - Each tryout kid can carry a short "what he is wearing" tag, shown as a highlighted pill under his name on the scoring screen, on his board sheet and on the printed board. Clothes only.
 - It is kept **per night**, because next week he will be in a different shirt: night two's scoring screen shows "+ what he is wearing" again instead of last week's clothes. The board with all nights shows each night's tag.
 - Set it when adding a kid, or tap the pill (or the "+ what he is wearing" link) on the scoring screen. Any linked coach can set it and it reaches the others like any other edit to a kid.
+
+## 2026-11-23, nobody reads the scale upside down (v0.9.2) (Deren, same morning: "Is your system also clear on one being bad and five being good? ... Make it abundantly clear and simple")
+
+- Yes: 5 is best everywhere. Averages, the board's order (highest on top) and the colors all assume it.
+- **Said three ways on the scoring screen, with nothing to tap:** a card at the top ("5 is best. 1 is lowest." then "Compare each kid with our own team. A 3 is about our average player." then "Did not see it? Leave it blank. A blank is not held against him."); the words lowest, average and best printed on the 1, 3 and 5 buttons of every row; and color (a red edge under 1 through a green edge under 5, and the picked button fills with that color). The colors are fixed, not the team's brand colors, so they read the same on every phone.
+- **Plainer words for the five:** 5 one of our best, 4 above our average, 3 about our average player, 2 below our average, 1 well below our team. Behind "See what each number means", best first.
+- **Board:** "Higher is better." and the same sentence at the top; 4 and up in green, 2 and down in red. The printed board leads with the sentence too. One constant (`SCALE_RULE`) feeds every screen and printout so the wording cannot drift.

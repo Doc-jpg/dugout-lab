@@ -89,7 +89,7 @@ function expect(label, got, want) { if (JSON.stringify(got) !== JSON.stringify(w
   await tscore(B, 'Alex Rivers').locator('.tnums button').nth(3).click(); await B.waitForTimeout(500);
   await B.reload().catch(() => undefined); await B.waitForSelector('[data-tryout]');
   await B.locator('.chips[aria-label="Station"]').getByRole('button', { name: 'Hitting' }).click(); await B.waitForTimeout(300);
-  expect('a mark made with no signal is still there after reopening with no signal', (await tscore(B, 'Alex Rivers').locator('.tnums button.on').allInnerTexts()).join(''), '4');
+  expect('a mark made with no signal is still there after reopening with no signal', (await tscore(B, 'Alex Rivers').locator('.tnums button.on .n').allInnerTexts()).join(''), '4');
   await B.context().setOffline(false);
   await B.reload(); await B.waitForSelector('[data-tryout]'); await B.waitForTimeout(4000);
   await A.reload(); await A.waitForSelector('[data-tryout]'); await tab(A, 'Board').click();

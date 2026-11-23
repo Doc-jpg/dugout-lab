@@ -370,8 +370,28 @@ select.input.sm { width: auto; min-height: 36px; padding: 4px 8px; font-size: 13
 .tscore .title { font-weight: 700; }
 .tscore .sub { color: var(--ink-3); font-size: 13px; }
 .tnums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
-.tnums button { min-height: 48px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; }
-.tnums button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.tnums button { min-height: 56px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 4px 0; }
+.tnums button .n { font-size: 20px; font-weight: 800; line-height: 1.1; }
+.tnums button .cap { font-size: 11px; font-weight: 600; color: var(--ink-3); line-height: 1.1; }
+/* The color says which way is good: red at 1, green at 5. Fixed colors, not the team's, so it reads the same on every phone. */
+.tnums button.v1 { border-bottom: 4px solid #b3362b; }
+.tnums button.v2 { border-bottom: 4px solid #c9772b; }
+.tnums button.v3 { border-bottom: 4px solid #6b7785; }
+.tnums button.v4 { border-bottom: 4px solid #4f9a5d; }
+.tnums button.v5 { border-bottom: 4px solid #1b7f4a; }
+.tnums button.on { color: #fff; border-color: transparent; }
+.tnums button.on .cap { color: #fff; }
+.tnums button.on.v1, .tkey-list .dot.v1 { background: #b3362b; }
+.tnums button.on.v2, .tkey-list .dot.v2 { background: #c9772b; }
+.tnums button.on.v3, .tkey-list .dot.v3 { background: #6b7785; }
+.tnums button.on.v4, .tkey-list .dot.v4 { background: #4f9a5d; }
+.tnums button.on.v5, .tkey-list .dot.v5 { background: #1b7f4a; }
+.tkey { padding: 10px 12px; border-left: 4px solid #1b7f4a; }
+.tkey .big { font-size: 18px; font-weight: 800; }
+.tkey-list { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.tkey-list .dot { display: inline-flex; width: 26px; height: 26px; border-radius: 6px; color: #fff; font-weight: 800; align-items: center; justify-content: center; margin-right: 8px; }
+table.tboard td.hi { color: #14632d; font-weight: 700; }
+table.tboard td.lo { color: #a02c22; font-weight: 700; }
 .btn.has-note { color: var(--hit); }
 table.tboard td.split { background: var(--warn-bg); color: #3d2a00; font-weight: 700; }
 table.tboard th, table.tboard td { text-align: center; padding: 8px 7px; }

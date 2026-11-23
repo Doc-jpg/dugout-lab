@@ -19,14 +19,19 @@ import { LEAN_STATION, NOTE_STATION } from './types';
 /** Matt's plan for the Warriors tryout nights, plus the two things a drill does not show by itself. */
 export const DEFAULT_STATIONS = ['Catch play', 'Ground balls', 'Fly balls', 'Pitching', 'Catching', 'Hitting', 'Speed and athleticism', 'Coachability and effort'];
 
-/** What each number means. Anchored to our own team so two coaches mean the same thing by a 3. */
-export const SCALE: Array<{ value: number; label: string }> = [
-  { value: 1, label: 'Not at our level yet' },
-  { value: 2, label: 'Below our middle' },
-  { value: 3, label: 'Fits our middle' },
-  { value: 4, label: 'Would play a lot' },
-  { value: 5, label: 'Standout' }
+/**
+ * What each number means. 5 is best, 1 is lowest, and 3 is about our own average player, so two
+ * coaches mean the same thing by a 3. `cap` is the word printed on the button itself.
+ */
+export const SCALE: Array<{ value: number; label: string; cap?: string }> = [
+  { value: 1, label: 'Well below our team', cap: 'lowest' },
+  { value: 2, label: 'Below our average' },
+  { value: 3, label: 'About our average player', cap: 'average' },
+  { value: 4, label: 'Above our average' },
+  { value: 5, label: 'One of our best', cap: 'best' }
 ];
+/** The one sentence every screen and printout uses, so nobody reads the scale upside down. */
+export const SCALE_RULE = '5 is best. 1 is lowest. 3 is about our average player.';
 
 export const LEANS: Array<{ value: number; label: string }> = [{ value: 3, label: 'Yes' }, { value: 2, label: 'Maybe' }, { value: 1, label: 'No' }];
 export const DECISION_LABEL = { offer: 'Offer', waitlist: 'Waitlist', pass: 'Pass' } as const;
@@ -231,7 +236,7 @@ table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #d5dbe6;
 @media print{body{margin:10mm}}</style></head><body>
 <h1>${esc(t.name)}</h1>
 <div class="m">${esc(opts.sessionLabel)} · as of ${esc(opts.asOf)} · scored by ${esc(opts.coaches.join(', ') || 'no one yet')}</div>
-<p class="warn"><strong>For coaches only.</strong> Do not share with families or players. Each number is the average of the coaches who scored it, 1 to 5 against our own team (3 fits our middle). A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means nobody scored it, and it is left out of the overall.</p>
+<p class="warn"><strong>For coaches only.</strong> Do not share with families or players. <strong>${SCALE_RULE}</strong> Each number is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means nobody scored it, and it is left out of the overall.</p>
 <table><thead>${head}</thead><tbody>${body}</tbody></table>
 ${notes ? `<h2>Notes</h2>${notes}` : ''}
 </body></html>`;

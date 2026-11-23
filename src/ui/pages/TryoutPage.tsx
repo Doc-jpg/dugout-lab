@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, createTryout, updateTryout, addCandidate, updateCandidate, setScore, deleteTryout, saveSettings } from '../../db/db';
 import { useSettings, useCurrentTeam } from '../hooks';
 import { LEAN_STATION, NOTE_STATION, localDate, newId, type Candidate, type Tryout, type TryoutScore, type TryoutDecision } from '../../engine/types';
-import { DEFAULT_STATIONS, SCALE, LEANS, DECISION_LABEL, SPLIT_AT, visibleStations, sortCandidates, currentSession, parseCandidateList, buildBoard, sortBoard, fmt, myProgress, coachCounts, renderBoardHtml, wearingOn, type BoardRow, type BoardSort } from '../../engine/tryout';
+import { DEFAULT_STATIONS, SCALE, SCALE_RULE, LEANS, DECISION_LABEL, SPLIT_AT, visibleStations, sortCandidates, currentSession, parseCandidateList, buildBoard, sortBoard, fmt, myProgress, coachCounts, renderBoardHtml, wearingOn, type BoardRow, type BoardSort } from '../../engine/tryout';
 import { shortDate } from '../../engine/progress';
 import { Sheet, useToast } from '../components/Sheet';
 import { PrintSheet } from '../components/PrintSheet';
@@ -17,6 +17,8 @@ const nightLabel = (date: string) => {
 const addDays = (date: string, n: number) => { const [y, m, d] = date.split('-').map((x) => parseInt(x, 10)); return localDate(new Date(y, m - 1, d + n)); };
 const kidLine = (c: Candidate) => [c.positions, c.team, c.note].filter(Boolean).join(' · ');
 const kidName = (c: Candidate) => `${c.number ? `#${c.number} ` : ''}${c.name}`;
+/** Green for 4 and up, red for 2 and down, plain in between: the color says which way is good. */
+const tone = (n?: number) => (n === undefined ? '' : n >= 4 ? 'hi' : n <= 2 ? 'lo' : '');
 /** A column heading that fits a phone: the first word of a long station name. */
 const shortLabel = (label: string) => (label.length > 9 ? label.split(' ')[0] : label);
 
@@ -120,7 +122,7 @@ function TryoutScreen({ tryoutId }: { tryoutId: string }) {
 function Nums({ value, onPick, label }: { value?: number; onPick: (v: number | null) => void; label: string }) {
   return (
     <div className="tnums" role="group" aria-label={label}>
-      {SCALE.map((s) => <button key={s.value} className={value === s.value ? 'on' : ''} aria-pressed={value === s.value} aria-label={`${s.value}, ${s.label}`} onClick={() => onPick(value === s.value ? null : s.value)}>{s.value}</button>)}
+      {SCALE.map((s) => <button key={s.value} className={`v${s.value} ${value === s.value ? 'on' : ''}`} aria-pressed={value === s.value} aria-label={`${s.value}, ${s.label}`} onClick={() => onPick(value === s.value ? null : s.value)}><span className="n">{s.value}</span><span className="cap">{s.cap ?? '\u00a0'}</span></button>)}
     </div>
   );
 }
@@ -188,8 +190,15 @@ function ScoreTab({ tryout, candidates, scores, me, goSetup }: { tryout: Tryout;
         <button className={`chip sm ${mode === 'station' ? 'on' : ''}`} onClick={() => setMode('station')}>One station, every kid</button>
         <button className={`chip sm ${mode === 'kid' ? 'on' : ''}`} onClick={() => setMode('kid')}>One kid, every station</button>
       </div>
-      <button className="btn ghost sm" style={{ paddingLeft: 0 }} onClick={() => setScale(!scale)}>{scale ? 'Hide' : 'What the numbers mean'}</button>
-      {scale && <div className="card small" style={{ padding: 10 }}>Against our own team, so every coach means the same thing by a 3:<br />{SCALE.map((s) => <span key={s.value}><strong>{s.value}</strong> {s.label.toLowerCase()}{s.value < 5 ? ' · ' : ''}</span>)}<br />Tap a number again to clear it. Skip a station you did not see; a blank is left out, not counted as low.</div>}
+      <div className="card tkey" data-scale-key>
+        <div className="big">5 is best. 1 is lowest.</div>
+        <div className="small">Compare each kid with <strong>our own team</strong>. A 3 is about our average player.</div>
+        {/* The full reminder until this coach has made a few marks tonight; after that it gets out of the way. */}
+        {(mine.size < 5 || scale) && <div className="small">Did not see it? Leave it blank. A blank is not held against him.</div>}
+        <button className="btn ghost sm" style={{ paddingLeft: 0 }} onClick={() => setScale(!scale)}>{scale ? 'Hide the five' : 'See what each number means'}</button>
+        {scale && <ol className="tkey-list">{[...SCALE].reverse().map((s) => <li key={s.value}><span className={`dot v${s.value}`}>{s.value}</span> {s.label}</li>)}</ol>}
+        {scale && <div className="small muted">Tap a number again to clear it.</div>}
+      </div>
 
       {kids.length === 0 && <div className="empty">No kids yet.<br /><button className="btn primary" style={{ marginTop: 10 }} onClick={() => setAdding(true)}>+ Add a kid</button> <button className="btn" style={{ marginTop: 10 }} onClick={goSetup}>Paste a list</button></div>}
       {stations.length === 0 && <div className="empty">No stations showing. Add or show one under Kids and stations.</div>}
@@ -286,6 +295,7 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
   const openRow = rows.find((r) => r.candidate.id === open);
   return (
     <div>
+      <div className="card tkey" data-scale-key><div className="big">Higher is better.</div><div className="small">{SCALE_RULE} Each number is the average of the coaches who scored it.</div></div>
       <div className="card small" style={{ padding: 10, borderLeft: '4px solid var(--warn)' }}><strong>Coaches only.</strong> This compares kids because a tryout is a choice. It is never shown to a family and never becomes part of a player's page.</div>
       {tryout.sessions.length > 1 && (
         <div className="chips" style={{ margin: '8px 0' }} aria-label="Which night">
@@ -310,8 +320,8 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
             {rows.map((r) => (
               <tr key={r.candidate.id} onClick={() => setOpen(r.candidate.id)} style={{ cursor: 'pointer' }} data-board-kid={r.candidate.name}>
                 <td><strong>{kidName(r.candidate)}</strong>{r.candidate.decision && <span className={`pill ${r.candidate.decision === 'offer' ? 'ok' : r.candidate.decision === 'pass' ? 'warn' : ''}`} style={{ marginLeft: 6 }}>{DECISION_LABEL[r.candidate.decision]}</span>}</td>
-                <td><strong>{fmt(r.overall)}</strong></td>
-                {r.cells.map((c) => <td key={c.stationId} className={`${c.split ? 'split' : ''} ${c.avg === undefined ? 'na' : ''}`}>{fmt(c.avg)}</td>)}
+                <td className={tone(r.overall)}><strong>{fmt(r.overall)}</strong></td>
+                {r.cells.map((c) => <td key={c.stationId} className={`${c.split ? 'split' : ''} ${c.avg === undefined ? 'na' : tone(c.avg)}`}>{fmt(c.avg)}</td>)}
                 <td>{r.leans.yes.length} / {r.leans.maybe.length} / {r.leans.no.length}</td>
               </tr>
             ))}
@@ -319,7 +329,7 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
           </tbody>
         </table>
       </div>
-      <p className="muted small">Each number is the average of the coaches who scored it. A shaded box means two coaches were {SPLIT_AT} or more apart. A dash means nobody scored it, and it is left out of the overall. Tap a kid for each coach's marks and notes.</p>
+      <p className="muted small">Green is 4 or better, red is 2 or lower. A shaded box means two coaches were {SPLIT_AT} or more apart. A dash means nobody scored it, and it is left out of the overall. Tap a kid for each coach's marks and notes.</p>
       <div className="row wrap">
         {settings.sync?.enabled && <button className="btn primary" disabled={fetching === 'busy'} onClick={refresh}>{fetching === 'busy' ? 'Getting them…' : 'Get the latest marks'}</button>}
         <button className="btn" onClick={() => setPrint(true)}>Print or share the board</button>
