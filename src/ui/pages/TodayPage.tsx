@@ -146,6 +146,7 @@ export function TodayPage() {
             <button className="btn" onClick={() => setNarrate(true)}>Narrate a drill</button>
             <button className="btn" onClick={() => nav('/practices/new')}>+ New practice</button>
             <button className="btn" onClick={() => nav('/parents')}>Parent updates{due.length ? ` (${due.length} due)` : ''}</button>
+            <button className="btn" onClick={() => nav('/tryouts')}>Tryouts</button>
           </div>
 
           {lastDone && (

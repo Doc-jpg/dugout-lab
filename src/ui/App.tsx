@@ -22,6 +22,7 @@ import { useCurrentTeam } from './hooks';
 import { brandCss } from '../engine/brand';
 import { TourProvider } from './components/Tour';
 import { JoinPage } from './pages/JoinPage';
+import { TryoutsPage } from './pages/TryoutPage';
 import { startSyncLoop } from '../io/sync';
 
 const Icon = {
@@ -86,6 +87,8 @@ export function App() {
           <Route path="/setup" element={<SetupPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/join" element={<JoinPage />} />
+          <Route path="/tryouts" element={<TryoutsPage />} />
+          <Route path="/tryouts/:tryoutId" element={<TryoutsPage />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
         </ErrorBoundary>

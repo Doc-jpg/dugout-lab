@@ -579,6 +579,8 @@ export interface SyncState {
   localTeamId?: ID;
   lastPush?: ISODateTime;
   lastPullTs?: string;
+  /** Which set of synced tables this phone has pulled in full. Lower than the app's means one full pull is owed. */
+  schema?: number;
   lastSyncAt?: ISODateTime;
   lastError?: string;
 }
@@ -593,3 +595,72 @@ export const DEFAULT_SETTINGS: Settings = {
   backupReminderPractices: 3,
   parentUpdateEveryPractices: 3
 };
+
+// ---------------------------------------------------------------------------
+// Tryouts. Coach-only. Kept apart from the roster: a kid trying out is not a player on the team.
+// ---------------------------------------------------------------------------
+
+export interface TryoutStation {
+  id: ID;
+  label: string;
+  /** Hidden stations keep their scores but leave the scoring screen and the board. */
+  hidden?: boolean;
+}
+
+export interface TryoutSession {
+  id: ID;
+  label: string;
+  date: ISODate;
+}
+
+export interface Tryout {
+  id: ID;
+  name: string;
+  stations: TryoutStation[];
+  sessions: TryoutSession[];
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+export type TryoutDecision = 'offer' | 'waitlist' | 'pass';
+
+/** A kid trying out. Only what a coach needs to tell kids apart on the field: no birthday, no parent, no phone. */
+export interface Candidate {
+  id: ID;
+  tryoutId: ID;
+  name: string;
+  number?: string;
+  positions?: string;
+  team?: string;
+  /** Anything short: throws left, came with a teammate. */
+  note?: string;
+  hidden?: boolean;
+  decision?: TryoutDecision;
+  decisionNote?: string;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+/** Station ids that are not stations: a coach's overall lean, and his free note on a kid. */
+export const LEAN_STATION = '_lean';
+export const NOTE_STATION = '_note';
+
+/**
+ * One coach's mark for one kid at one station in one session. The id is built from those four
+ * things and the coach's name, so scoring the same thing twice updates the same record, on this
+ * phone or any other phone that coach uses.
+ */
+export interface TryoutScore {
+  id: ID;
+  tryoutId: ID;
+  candidateId: ID;
+  stationId: ID;
+  sessionId: ID;
+  /** The coach. From the invite on a linked phone, and stamped again by the server. */
+  by: string;
+  /** 1 to 5 at a station; 1 no, 2 maybe, 3 yes for the lean. Missing means cleared. */
+  value?: number;
+  note?: string;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}

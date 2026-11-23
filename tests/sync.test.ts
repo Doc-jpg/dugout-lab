@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { DugoutLabDB, seedLibrary, createTeam, createPlayer, updatePlayer, addObservation, addThrowing, saveVariant, deleteObservation, deletePlayer, getSettings, savePractice, updateDrill } from '../src/db/db';
+import { DugoutLabDB, seedLibrary, createTeam, createPlayer, updatePlayer, addObservation, addThrowing, saveVariant, deleteObservation, deletePlayer, getSettings, savePractice, updateDrill, createTryout, addCandidate, setScore, updateTryout, updateCandidate, deleteTryout, saveSettings } from '../src/db/db';
+import { buildBoard } from '../src/engine/tryout';
 import { startTeamSync, makeInvite, joinTeam, syncNow, listMembers, setMemberRevoked, inviteLink, parseInviteLink, makeCode, outgoing } from '../src/io/sync';
 import { SYNC_CONFIG } from '../src/sync-config';
 import { sha256Hex } from '../src/io/hash';
@@ -95,6 +96,70 @@ async function helperPhone(server: ReturnType<typeof fakeServer>, head: DugoutLa
   await joinTeam(parseInviteLink(invite.link)!, `${name.toLowerCase()}-phone`, phone);
   return { phone, invite };
 }
+
+describe('tryouts travel between phones', () => {
+  it('kids, stations and each coach\'s marks reach every phone, credited by the server, and the board adds up', async () => {
+    const server = fakeServer();
+    const { head } = await headPhone(server);
+    const t = await createTryout({ name: 'Warriors tryouts', stations: [{ label: 'Ground balls' }, { label: 'Hitting' }], sessions: [{ label: 'Night 1', date: '2026-11-23' }] }, head);
+    const alex = await addCandidate(t.id, { name: 'Alex Rivers', number: '12' }, head);
+    const key = { tryoutId: t.id, candidateId: alex.id, stationId: t.stations[0].id, sessionId: t.sessions[0].id };
+    await setScore({ ...key, by: 'Deren', value: 5 }, head);
+    await syncNow(head, server.fetchImpl, cfg);
+    const { phone: aaron } = await helperPhone(server, head, 'Aaron');
+    await syncNow(aaron, server.fetchImpl, cfg);
+    expect((await aaron.tryouts.get(t.id))!.stations.map((s) => s.label)).toEqual(['Ground balls', 'Hitting']);
+    expect((await aaron.candidates.toArray()).map((c) => c.name)).toEqual(['Alex Rivers']);
+    // Aaron marks on his phone, adds a walk-up and a station; a phone that lies about its name is corrected by the server
+    await setScore({ ...key, by: 'Somebody Else', value: 2, note: 'slow feet' }, aaron);
+    const walkup = await addCandidate(t.id, { name: 'Ben Cole' }, aaron);
+    await new Promise((r) => setTimeout(r, 5));
+    await updateTryout(t.id, { stations: [...t.stations, { id: 'bunt', label: 'Bunting' }] }, aaron);
+    await syncNow(aaron, server.fetchImpl, cfg);
+    await syncNow(head, server.fetchImpl, cfg);
+    expect((await head.candidates.get(walkup.id))!.name).toBe('Ben Cole');
+    expect((await head.tryouts.get(t.id))!.stations.map((s) => s.label)).toEqual(['Ground balls', 'Hitting', 'Bunting']);
+    const marks = await head.tryoutScores.toArray();
+    expect(marks.map((m) => m.by).sort()).toEqual(['Aaron', 'Deren']);
+    const row = buildBoard((await head.tryouts.get(t.id))!, await head.candidates.toArray(), marks).find((r) => r.candidate.id === alex.id)!;
+    expect(row.cells[0]).toMatchObject({ avg: 3.5, split: true });
+    expect(row.notes).toEqual([{ by: 'Aaron', sessionId: t.sessions[0].id, stationId: t.stations[0].id, text: 'slow feet' }]);
+    // a decision made on the head phone reaches the helper; deleting the tryout clears both phones
+    await new Promise((r) => setTimeout(r, 5));
+    await updateCandidate(alex.id, { decision: 'offer' }, head);
+    await syncNow(head, server.fetchImpl, cfg);
+    await syncNow(aaron, server.fetchImpl, cfg);
+    expect((await aaron.candidates.get(alex.id))!.decision).toBe('offer');
+    await new Promise((r) => setTimeout(r, 5));
+    await deleteTryout(t.id, head);
+    await syncNow(head, server.fetchImpl, cfg);
+    await syncNow(aaron, server.fetchImpl, cfg);
+    expect([await aaron.tryouts.count(), await aaron.candidates.count(), await aaron.tryoutScores.count()]).toEqual([0, 0, 0]);
+    head.close(); aaron.close();
+  });
+
+  it('a phone that synced on the older app, then updated, pulls the tryout rows it skipped', async () => {
+    const server = fakeServer();
+    const { head } = await headPhone(server);
+    const { phone: aaron } = await helperPhone(server, head, 'Aaron');
+    await syncNow(head, server.fetchImpl, cfg);
+    await syncNow(aaron, server.fetchImpl, cfg);
+    const t = await createTryout({ name: 'Warriors tryouts', stations: [{ label: 'Hitting' }], sessions: [{ label: 'Night 1', date: '2026-11-23' }] }, head);
+    await addCandidate(t.id, { name: 'Alex Rivers' }, head);
+    await syncNow(head, server.fetchImpl, cfg);
+    // What the older app did: saw rows for tables it did not know, kept nothing, and moved its pull mark past them.
+    const far = new Date(Date.UTC(2027, 0, 1)).toISOString();
+    const old = (await getSettings(aaron)).sync!;
+    const { schema: _dropped, ...oldState } = old;
+    await saveSettings({ sync: { ...oldState, lastPullTs: far } }, aaron);
+    expect(await aaron.tryouts.count()).toBe(0);
+    await syncNow(aaron, server.fetchImpl, cfg);
+    expect(await aaron.tryouts.count()).toBe(1);
+    expect((await aaron.candidates.toArray()).map((c) => c.name)).toEqual(['Alex Rivers']);
+    expect((await getSettings(aaron)).sync!.schema).toBe(2);
+    head.close(); aaron.close();
+  });
+});
 
 describe('invite links', () => {
   it('carry the team key, the coach token and the name in the hash fragment, and parse back', () => {

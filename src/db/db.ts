@@ -3,7 +3,7 @@
  * the two never touch each other even when both run in the same browser).
  */
 import Dexie, { type Table } from 'dexie';
-import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings, ParentUpdate } from '../engine/types';
+import type { Team, Player, Drill, DrillVariant, Practice, Observation, ThrowingEntry, Settings, ParentUpdate, Tryout, Candidate, TryoutScore } from '../engine/types';
 import { DEFAULT_SETTINGS, newId, nowIso } from '../engine/types';
 import { LIBRARY_DRILLS, LIBRARY_VERSION } from '../data/drills';
 
@@ -20,7 +20,7 @@ export interface Tombstone {
   ts: string;
 }
 
-export const DATA_TABLES = ['teams', 'players', 'drills', 'variants', 'practices', 'observations', 'throwing', 'parentUpdates'] as const;
+export const DATA_TABLES = ['teams', 'players', 'drills', 'variants', 'practices', 'observations', 'throwing', 'parentUpdates', 'tryouts', 'candidates', 'tryoutScores'] as const;
 export type DataTable = (typeof DATA_TABLES)[number];
 
 /** Set quiet while sync applies pulled rows so those writes do not kick another sync. */
@@ -44,6 +44,9 @@ export class DugoutLabDB extends Dexie {
   meta!: Table<Meta, string>;
   parentUpdates!: Table<ParentUpdate, string>;
   tombstones!: Table<Tombstone, string>;
+  tryouts!: Table<Tryout, string>;
+  candidates!: Table<Candidate, string>;
+  tryoutScores!: Table<TryoutScore, string>;
 
   constructor(name = 'dugout-lab') {
     super(name);
@@ -64,6 +67,12 @@ export class DugoutLabDB extends Dexie {
     // v3 (2026-11-02): tombstones so a deletion reaches the other coaches' phones through sync. Existing rows untouched.
     this.version(3).stores({
       tombstones: 'key, ts'
+    });
+    // v4 (2026-11-23): tryouts, the kids trying out, and each coach's marks. Existing rows untouched.
+    this.version(4).stores({
+      tryouts: 'id',
+      candidates: 'id, tryoutId',
+      tryoutScores: 'id, tryoutId, candidateId'
     });
     for (const t of DATA_TABLES) {
       const table = (this as any)[t] as Table<any, string>;
@@ -357,4 +366,66 @@ export async function requestPersistence(): Promise<boolean | null> {
     /* ignore */
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Tryouts
+// ---------------------------------------------------------------------------
+
+export async function createTryout(input: { name: string; stations: Array<{ label: string }>; sessions: Array<{ label: string; date: string }> }, database: DugoutLabDB = db): Promise<Tryout> {
+  const ts = nowIso();
+  const t: Tryout = { id: newId(), name: input.name.trim() || 'Tryouts', stations: input.stations.map((s) => ({ id: newId(), label: s.label })), sessions: input.sessions.map((s) => ({ id: newId(), label: s.label, date: s.date })), createdAt: ts, updatedAt: ts };
+  await database.tryouts.put(t);
+  return t;
+}
+
+export async function updateTryout(id: string, patch: Partial<Tryout>, database: DugoutLabDB = db): Promise<void> {
+  const cur = await database.tryouts.get(id);
+  if (!cur) return;
+  await database.tryouts.put({ ...cur, ...patch, id, updatedAt: nowIso() });
+}
+
+export async function addCandidate(tryoutId: string, input: { name: string; number?: string; positions?: string; team?: string; note?: string }, database: DugoutLabDB = db): Promise<Candidate> {
+  const ts = nowIso();
+  const clean = (v?: string) => (v && v.trim() ? v.trim() : undefined);
+  const c: Candidate = { id: newId(), tryoutId, name: input.name.trim(), number: clean(input.number), positions: clean(input.positions), team: clean(input.team), note: clean(input.note), createdAt: ts, updatedAt: ts };
+  await database.candidates.put(c);
+  return c;
+}
+
+export async function updateCandidate(id: string, patch: Partial<Candidate>, database: DugoutLabDB = db): Promise<void> {
+  const cur = await database.candidates.get(id);
+  if (!cur) return;
+  await database.candidates.put({ ...cur, ...patch, id, updatedAt: nowIso() });
+}
+
+/** The same coach marking the same kid at the same station in the same session always lands on this id. */
+export function scoreId(tryoutId: string, candidateId: string, stationId: string, sessionId: string, by: string): string {
+  const who = by.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'coach';
+  return `ts-${tryoutId}-${candidateId}-${stationId}-${sessionId}-${who}`;
+}
+
+/**
+ * Set, change or clear one mark. Passing `value: undefined` clears the number and keeps the note;
+ * a cleared record stays (with no value) so the clearing reaches the other phones.
+ */
+export async function setScore(input: { tryoutId: string; candidateId: string; stationId: string; sessionId: string; by: string; value?: number | null; note?: string | null }, database: DugoutLabDB = db): Promise<TryoutScore> {
+  const id = scoreId(input.tryoutId, input.candidateId, input.stationId, input.sessionId, input.by);
+  const cur = await database.tryoutScores.get(id);
+  const ts = nowIso();
+  const next: TryoutScore = { ...(cur ?? { id, tryoutId: input.tryoutId, candidateId: input.candidateId, stationId: input.stationId, sessionId: input.sessionId, by: input.by.trim(), createdAt: ts }), updatedAt: ts } as TryoutScore;
+  if (input.value !== undefined) { if (input.value === null) delete next.value; else next.value = input.value; }
+  if (input.note !== undefined) { if (input.note === null || !input.note.trim()) delete next.note; else next.note = input.note.trim(); }
+  await database.tryoutScores.put(next);
+  return next;
+}
+
+/** Remove a tryout and everything in it, here and (through sync) on the other phones. Head coach only on linked phones. */
+export async function deleteTryout(id: string, database: DugoutLabDB = db): Promise<void> {
+  await database.transaction('rw', [database.tryouts, database.candidates, database.tryoutScores, database.tombstones], async () => {
+    for (const s of await database.tryoutScores.where('tryoutId').equals(id).toArray()) { await tombstone(database, 'tryoutScores', s.id); await database.tryoutScores.delete(s.id); }
+    for (const c of await database.candidates.where('tryoutId').equals(id).toArray()) { await tombstone(database, 'candidates', c.id); await database.candidates.delete(c.id); }
+    await tombstone(database, 'tryouts', id);
+    await database.tryouts.delete(id);
+  });
 }

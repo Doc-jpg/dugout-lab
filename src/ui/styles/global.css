@@ -364,3 +364,14 @@ select.input.sm { width: auto; min-height: 36px; padding: 4px 8px; font-size: 13
 /* Drill diagrams: the picture brings its own colors, so it reads the same in light and dark and outdoors. */
 .diagram-box { margin: 10px 0 6px; padding: 8px; border: 1px solid var(--line, rgba(128,128,128,0.3)); border-radius: 12px; }
 .diagram svg { touch-action: manipulation; }
+
+/* Tryouts: five big numbers a thumb can hit while watching a drill */
+.tscore { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-elev); }
+.tscore .title { font-weight: 700; }
+.tscore .sub { color: var(--ink-3); font-size: 13px; }
+.tnums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
+.tnums button { min-height: 48px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; }
+.tnums button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.has-note { color: var(--hit); }
+table.tboard td.split { background: var(--warn-bg); color: #3d2a00; font-weight: 700; }
+table.tboard th, table.tboard td { text-align: center; padding: 8px 7px; }

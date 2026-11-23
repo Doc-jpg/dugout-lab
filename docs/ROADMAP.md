@@ -30,6 +30,9 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 - Per-team branding is in. Next for a sellable copy: a build script that takes a brand file (name, colors, icon PNGs) and produces the PWA; a hosted landing page per program; and the sync server from Phase 3 with team invite codes so a program can hand the app to its coaches without passing files.
 - Pricing thought (not built): per program per season, with the drill library and parent pages as the value; keep the offline, no-account core free for a single coach.
 
+## Tryouts (v0.9.0, 2026-11-23)
+- Next, from the first real nights: a tryout-only guest link (score without seeing the roster), timed and measured stations (60-yard run, radar), optional weights for the overall, tryout data in the backup file, turning an offered kid into a roster player in one tap (name and positions only).
+
 ## Housekeeping
 - Done 2026-11-16: compared with the Hero Digitals coaching product from Deren's screenshots; took the one real gap, drill diagrams (28 of 110 so far, v0.7.0). Next: the rest of the library where a picture helps, diagrams on the printed plan, a coach drawing his own.
 - Consider shifting a few warm-up drills from blocked to variable to balance the library's style mix.

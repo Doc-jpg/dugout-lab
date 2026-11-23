@@ -103,6 +103,13 @@ export function parseInviteLink(hashOrUrl: string): { teamKey: string; token: st
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Bump when a table joins the sync. A phone on an older app skips rows of a table it does not
+ * know and still moves its pull mark past them, so after it updates it owes one pull from the start.
+ * 2 (2026-11-23): tryouts, candidates, tryoutScores.
+ */
+export const SYNC_SCHEMA = 2;
+
 type FetchLike = (input: string, init?: any) => Promise<{ ok: boolean; status: number; json: () => Promise<any>; text: () => Promise<string> }>;
 type Config = { url: string; anonKey: string };
 
@@ -120,7 +127,7 @@ export async function startTeamSync(coachName: string, localTeamId: string, devi
   const teamKey = makeCode();
   const token = makeCode();
   const teamId = await sha256Hex(teamKey);
-  const state: SyncState = { teamKey, teamId, token, role: 'head', name: coachName, device, enabled: true, localTeamId };
+  const state: SyncState = { teamKey, teamId, token, role: 'head', name: coachName, device, enabled: true, localTeamId, schema: SYNC_SCHEMA };
   const res = await fetchImpl(membersUrl(config), { method: 'POST', headers: { ...headersFor(state, config), Prefer: 'return=minimal' }, body: JSON.stringify([{ team_id: teamId, token_hash: await sha256Hex(token), name: coachName, role: 'Head coach', head: true }]) });
   if (!res.ok) throw new Error(`Could not start sync (${res.status}): ${(await res.text()).slice(0, 200)}`);
   await saveSettings({ sync: state }, database);
@@ -158,7 +165,7 @@ export async function setMemberRevoked(tokenHash: string, revoked: boolean, data
 /** A coach's phone: accept an invite. The name is locked from here on. The first sync fills the phone. */
 export async function joinTeam(invite: { teamKey: string; token: string; name: string; from?: string }, device: string, database: DugoutLabDB = defaultDb): Promise<SyncState> {
   const teamId = await sha256Hex(invite.teamKey);
-  const state: SyncState = { teamKey: invite.teamKey, teamId, token: invite.token, role: 'helper', name: invite.name, device, enabled: true };
+  const state: SyncState = { teamKey: invite.teamKey, teamId, token: invite.token, role: 'helper', name: invite.name, device, enabled: true, schema: SYNC_SCHEMA };
   await saveSettings({ sync: state, coachName: invite.name, packIdentity: { helperId: `inv-${state.token.slice(0, 8)}`, name: invite.name, teamId: '', from: invite.from, sentAt: nowIso() } }, database);
   return state;
 }
@@ -263,7 +270,8 @@ async function runSync(database: DugoutLabDB, fetchImpl: FetchLike, config: Conf
 
     const pull = async (): Promise<void> => {
       const cur = (await getSettings(database)).sync!;
-      const sinceTs = cur.lastPullTs ?? '1970-01-01T00:00:00Z';
+      const owesFullPull = (cur.schema ?? 1) < SYNC_SCHEMA;
+      const sinceTs = owesFullPull ? '1970-01-01T00:00:00Z' : cur.lastPullTs ?? '1970-01-01T00:00:00Z';
       let maxTs = sinceTs;
       let page = 0;
       let sawAny = false;
@@ -291,7 +299,7 @@ async function runSync(database: DugoutLabDB, fetchImpl: FetchLike, config: Conf
               continue;
             }
             if (!row.data) continue;
-            const data = t === 'observations' && row.coach ? { ...row.data, by: row.coach } : row.data;
+            const data = (t === 'observations' || t === 'tryoutScores') && row.coach ? { ...row.data, by: row.coach } : row.data;
             const existing = await table.get(row.id);
             const merged = existing ? mergeRecord(t, existing, data) : data;
             if (!existing || !sameRecord(merged, existing)) { await table.put(merged); report.applied += 1; }
@@ -309,7 +317,7 @@ async function runSync(database: DugoutLabDB, fetchImpl: FetchLike, config: Conf
         if (team && (s2.teamId !== team.id || s2.packIdentity?.teamId !== team.id)) await saveSettings({ teamId: team.id, packIdentity: s2.packIdentity ? { ...s2.packIdentity, teamId: team.id } : undefined }, database);
       }
       const fresh = (await getSettings(database)).sync!;
-      await saveSettings({ sync: { ...fresh, lastPullTs: maxTs, lastSyncAt: nowIso(), lastError: undefined } }, database);
+      await saveSettings({ sync: { ...fresh, lastPullTs: maxTs, lastSyncAt: nowIso(), lastError: undefined, schema: SYNC_SCHEMA } }, database);
       void sawAny;
     };
 

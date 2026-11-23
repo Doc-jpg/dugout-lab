@@ -47,6 +47,7 @@ export function HelpPage() {
           <li><strong>Drills</strong>: the library plus your own. Any drill can get a version for one player (same station, different job).</li>
           <li><strong>Diagrams</strong>: drills tagged "diagram" have a picture of who stands where, who moves and where the ball goes. Tap Play the steps to watch it, or tap a number to stop on one step. In a plan, open the station and tap Show the diagram.</li>
           <li><strong>Progress</strong>: your own level assessments by area, due-for-review checks, suggestions, attendance. No rankings.</li>
+          <li><strong>Tryouts</strong> (a button on Today): each coach marks every kid 1 to 5 at each station on his own phone, blind to the others; the Board puts the coaches side by side and flags where they disagree. Kids and stations can be added or changed mid-tryout. Coaches only; it is the one place kids are compared, and nothing from it reaches a family or a player page.</li>
         </ol>
       </div>
       <div className="card">
