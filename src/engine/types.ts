@@ -634,6 +634,8 @@ export interface Candidate {
   team?: string;
   /** Anything short: throws left, came with a teammate. */
   note?: string;
+  /** What he has on, by night (session id), so coaches who do not know names can find him: "bright green shirt". Clothes only. */
+  wearing?: Record<ID, string>;
   hidden?: boolean;
   decision?: TryoutDecision;
   decisionNote?: string;

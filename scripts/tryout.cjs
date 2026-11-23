@@ -39,7 +39,7 @@ fs.mkdirSync(shotsDir, { recursive: true });
   expect('preview shows positions and team', /Cy Dunn: CF \/ C · Velo/.test(await page.locator('.sheet').innerText()), true);
   await page.locator('.sheet-foot >> role=button[name="Add 5"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
   await page.getByRole('button', { name: '+ Add a kid' }).click(); await page.waitForSelector('#kid-name');
-  await page.fill('#kid-name', 'Finn Walker'); await page.fill('#kid-num', '9'); await page.fill('#kid-pos', 'P / LF');
+  await page.fill('#kid-name', 'Finn Walker'); await page.fill('#kid-num', '9'); await page.fill('#kid-pos', 'P / LF'); await page.fill('#kid-wear', 'bright green shirt');
   expect('the add sheet says what stays on the sign-up sheet', /No birthdays, parents or phone numbers here/.test(await page.locator('.sheet').innerText()), true);
   await page.locator('.sheet-foot >> role=button[name="Save"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
   expect('six kids, the numbered one first', /Kids and stations \(6\)/.test(await page.locator('[data-tryout]').innerText()) && (await page.locator('.card').first().locator('.item .title').first().innerText()) === '#9 Finn Walker', true);
@@ -66,6 +66,13 @@ fs.mkdirSync(shotsDir, { recursive: true });
   await tscore('Ben Cole').locator('.tnums button').nth(1).click();
   await tscore('Ben Cole').getByRole('button', { name: /Note/ }).click(); await tscore('Ben Cole').locator('input').fill('Sits back on everything'); await tscore('Ben Cole').locator('input').blur(); await settle(400);
   expect('a note saves and shows', /Note ✓/.test(await tscore('Ben Cole').innerText()), true);
+  // What a kid is wearing, so a coach who does not know names can find him
+  expect('the walk-up shows what he has on; the others invite it', [await tscore('Finn Walker').locator('.wear').innerText(), await tscore('Alex Rivers').locator('.wear').innerText()], ['bright green shirt', '+ what he is wearing']);
+  await tscore('Alex Rivers').locator('.wear').click(); await page.waitForSelector('#kid-wear');
+  expect('the sheet asks about tonight by name', /What he is wearing, \w{3}, \w{3} \d+/.test(await page.locator('.sheet').innerText()), true);
+  await page.fill('#kid-wear', 'red hoodie, white cleats'); await page.locator('.sheet-foot >> role=button[name="Save"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
+  expect('set from the scoring screen in one sheet', await tscore('Alex Rivers').locator('.wear').innerText(), 'red hoodie, white cleats');
+  expect('his mark is untouched by the edit', await pressed('Alex Rivers'), '4');
   await shot('41_tryout_score_station');
 
   // One kid, every station, with a lean and an overall note
@@ -111,6 +118,7 @@ fs.mkdirSync(shotsDir, { recursive: true });
   await page.locator('.sheet-foot >> role=button[name="Done"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
   await page.locator('tr[data-board-kid="Alex Rivers"]').click(); await page.waitForSelector('.sheet');
   sheet = await page.locator('.sheet').innerText();
+  expect('the kid sheet on the board shows what he wore', /red hoodie, white cleats/.test(sheet), true);
   expect('leans and notes carry the coach', /Yes: Deren · Maybe: Aaron · No: nobody/.test(sheet) && /Deren, Overall, .+: Loud contact, good teammate/.test(sheet), true);
   await page.getByRole('group', { name: 'Decision' }).getByRole('button', { name: 'Offer' }).click(); await settle();
   await page.locator('.sheet-foot >> role=button[name="Done"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
@@ -119,7 +127,7 @@ fs.mkdirSync(shotsDir, { recursive: true });
   expect('order by name', await page.locator('table.tboard tbody tr').first().getAttribute('data-board-kid'), 'Alex Rivers');
   await page.getByRole('button', { name: 'Print or share the board' }).click(); await page.waitForSelector('.sheet iframe');
   const doc = await page.frameLocator('.sheet iframe').locator('body').innerText();
-  expect('printed board says coaches only and carries the notes', /For coaches only\./.test(doc) && /Sits back on everything/.test(doc) && /Aaron 2\.0, Deren 5\.0/.test(doc), true);
+  expect('printed board says coaches only and carries the notes', /For coaches only\./.test(doc) && /Sits back on everything/.test(doc) && /Aaron 2\.0, Deren 5\.0/.test(doc) && /Wearing: bright green shirt/.test(doc), true);
   fs.writeFileSync(path.join(shotsDir, 'tryout-board.html'), await page.locator('.sheet iframe').getAttribute('srcdoc'));
   await page.locator('.sheet-head >> role=button[name="Close"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
 
@@ -128,6 +136,7 @@ fs.mkdirSync(shotsDir, { recursive: true });
   await page.locator('.chips[aria-label="Night"] .chip').nth(1).click(); await settle(150);
   await page.locator('.chips[aria-label="Station"]').getByRole('button', { name: 'Ground balls' }).click(); await settle(150);
   expect('night two starts blank', await page.locator('.tnums button.on').count(), 0);
+  expect('last week\'s clothes are not shown as tonight\'s', await tscore('Finn Walker').locator('.wear').innerText(), '+ what he is wearing');
   await tscore('Finn Walker').locator('.tnums button').nth(3).click(); await settle();
   await tab('Board').click(); await settle();
   expect('both nights: Aaron counts once (2 and 4 make 3), with Deren 5 that is 4.0', (await cellsOf('Finn Walker'))[3], '4.0');

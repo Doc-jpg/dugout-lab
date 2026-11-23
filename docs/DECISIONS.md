@@ -179,3 +179,9 @@ Deren sent screenshots of a paid coaching product whose main draw is animated dr
 - **A linked coach's phone waits for the head coach's tryout** ("Check now") instead of offering to start a second one.
 - **Limits, said plainly:** inviting a coach through linked phones also shows him this team's roster and plans (there is no tryout-only guest yet). Two coaches editing the station list in the same minute: the later save wins. Tryout data is not in the backup file yet (linked phones hold copies). Numbers only as 1 to 5; no stopwatch or radar fields.
 - **Checked:** tests/tryout.test.ts (18), two more in tests/sync.test.ts, `scripts/tryout.cjs` (34 browser checks, made-up kids), and `scripts/tryout-live.cjs`: two phones through the live server, the second coach waiting then joining with one tap, blind scoring, a walk-up and a station added from the second phone, the board on both, a mark made with no signal arriving later, delete reaching the other phone. Not yet used at a field.
+
+## 2026-11-23, what a kid is wearing (v0.9.1) (Deren, same morning: "add a way to physically identify them, like something about what they're wearing, just in case we don't remember all the names. Like, you know, bright green shirt")
+
+- Each tryout kid can carry a short "what he is wearing" tag, shown as a highlighted pill under his name on the scoring screen, on his board sheet and on the printed board. Clothes only.
+- It is kept **per night**, because next week he will be in a different shirt: night two's scoring screen shows "+ what he is wearing" again instead of last week's clothes. The board with all nights shows each night's tag.
+- Set it when adding a kid, or tap the pill (or the "+ what he is wearing" link) on the scoring screen. Any linked coach can set it and it reaches the others like any other edit to a kid.

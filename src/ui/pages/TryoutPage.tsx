@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, createTryout, updateTryout, addCandidate, updateCandidate, setScore, deleteTryout, saveSettings } from '../../db/db';
 import { useSettings, useCurrentTeam } from '../hooks';
 import { LEAN_STATION, NOTE_STATION, localDate, newId, type Candidate, type Tryout, type TryoutScore, type TryoutDecision } from '../../engine/types';
-import { DEFAULT_STATIONS, SCALE, LEANS, DECISION_LABEL, SPLIT_AT, visibleStations, sortCandidates, currentSession, parseCandidateList, buildBoard, sortBoard, fmt, myProgress, coachCounts, renderBoardHtml, type BoardRow, type BoardSort } from '../../engine/tryout';
+import { DEFAULT_STATIONS, SCALE, LEANS, DECISION_LABEL, SPLIT_AT, visibleStations, sortCandidates, currentSession, parseCandidateList, buildBoard, sortBoard, fmt, myProgress, coachCounts, renderBoardHtml, wearingOn, type BoardRow, type BoardSort } from '../../engine/tryout';
 import { shortDate } from '../../engine/progress';
 import { Sheet, useToast } from '../components/Sheet';
 import { PrintSheet } from '../components/PrintSheet';
@@ -149,6 +149,7 @@ function ScoreTab({ tryout, candidates, scores, me, goSetup }: { tryout: Tryout;
   const [kidId, setKidId] = useState<string>('');
   const [noteOpen, setNoteOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Candidate | null>(null);
   const [scale, setScale] = useState(false);
   const session = tryout.sessions.find((s) => s.id === sessionId) ?? tryout.sessions[0];
   const station = stations.find((s) => s.id === stationId) ?? stations[0];
@@ -161,13 +162,13 @@ function ScoreTab({ tryout, candidates, scores, me, goSetup }: { tryout: Tryout;
   }, [scores, me, session?.id]);
   if (!session) return <div className="empty">This tryout has no night yet. Add one under Kids and stations.</div>;
   const put = (candidateId: string, stId: string, patch: { value?: number | null; note?: string | null }) => setScore({ tryoutId: tryout.id, candidateId, stationId: stId, sessionId: session.id, by: me, ...patch });
-  const row = (c: Candidate, stId: string, title: React.ReactNode, sub?: string) => {
+  const row = (c: Candidate, stId: string, title: React.ReactNode, sub?: string, wear?: string) => {
     const cur = mine.get(`${c.id}|${stId}`);
     const key = `${c.id}|${stId}`;
     return (
       <div key={key} className="tscore" data-kid={c.name} data-station={stId}>
         <div className="row between" style={{ alignItems: 'flex-start', gap: 8 }}>
-          <div className="grow"><div className="title">{title}</div>{sub && <div className="sub">{sub}</div>}</div>
+          <div className="grow"><div className="title">{title}</div>{sub && <div className="sub">{sub}</div>}{wear !== undefined && <button className={`wear ${wear ? '' : 'empty'}`} aria-label={`What ${c.name} is wearing`} onClick={() => setEditing(c)}>{wear || '+ what he is wearing'}</button>}</div>
           <button className={`btn ghost sm ${cur?.note ? 'has-note' : ''}`} aria-label={`Note on ${c.name}`} onClick={() => setNoteOpen(noteOpen === key ? null : key)}>{cur?.note ? 'Note ✓' : '+ Note'}</button>
         </div>
         <Nums value={cur?.value} label={`${c.name}`} onPick={(v) => put(c.id, stId, { value: v })} />
@@ -198,7 +199,7 @@ function ScoreTab({ tryout, candidates, scores, me, goSetup }: { tryout: Tryout;
           <div className="chips" style={{ margin: '8px 0' }} aria-label="Station">
             {stations.map((s) => <button key={s.id} className={`chip ${s.id === station.id ? 'on' : ''}`} onClick={() => { setStationId(s.id); setNoteOpen(null); }}>{s.label}</button>)}
           </div>
-          <div className="list">{kids.map((c) => row(c, station.id, kidName(c), kidLine(c)))}</div>
+          <div className="list">{kids.map((c) => row(c, station.id, kidName(c), kidLine(c), wearingOn(c, tryout, session.id) ?? ''))}</div>
         </>
       )}
 
@@ -210,6 +211,7 @@ function ScoreTab({ tryout, candidates, scores, me, goSetup }: { tryout: Tryout;
           <div className="card" style={{ padding: 12 }}>
             <div className="title" style={{ fontSize: 18 }}>{kidName(kid)}</div>
             {kidLine(kid) && <div className="sub">{kidLine(kid)}</div>}
+            <button className={`wear ${wearingOn(kid, tryout, session.id) ? '' : 'empty'}`} aria-label={`What ${kid.name} is wearing`} onClick={() => setEditing(kid)}>{wearingOn(kid, tryout, session.id) || '+ what he is wearing'}</button>
           </div>
           <div className="list">{stations.map((s) => row(kid, s.id, s.label))}</div>
           <div className="card" style={{ marginTop: 10 }}>
@@ -227,21 +229,26 @@ function ScoreTab({ tryout, candidates, scores, me, goSetup }: { tryout: Tryout;
       )}
       {kids.length > 0 && <div className="row wrap" style={{ marginTop: 14 }}><button className="btn" onClick={() => setAdding(true)}>+ Add a kid</button></div>}
       <p className="muted small">You only see your own marks here, so nobody is steered by someone else's number. The Board shows everyone.</p>
-      {adding && <KidSheet tryoutId={tryout.id} onClose={() => setAdding(false)} />}
+      {adding && <KidSheet tryoutId={tryout.id} session={session} onClose={() => setAdding(false)} />}
+      {editing && <KidSheet tryoutId={tryout.id} kid={editing} session={session} onClose={() => setEditing(null)} />}
     </div>
   );
 }
 
-function KidSheet({ tryoutId, kid, onClose }: { tryoutId: string; kid?: Candidate; onClose: () => void }) {
+function KidSheet({ tryoutId, kid, session, onClose }: { tryoutId: string; kid?: Candidate; session?: { id: string; label: string }; onClose: () => void }) {
   const [name, setName] = useState(kid?.name ?? '');
   const [number, setNumber] = useState(kid?.number ?? '');
   const [positions, setPositions] = useState(kid?.positions ?? '');
   const [team, setTeam] = useState(kid?.team ?? '');
   const [note, setNote] = useState(kid?.note ?? '');
+  const [wear, setWear] = useState((session && kid?.wearing?.[session.id]) ?? '');
   const save = async () => {
     if (!name.trim()) return;
-    if (kid) await updateCandidate(kid.id, { name: name.trim(), number: number.trim() || undefined, positions: positions.trim() || undefined, team: team.trim() || undefined, note: note.trim() || undefined });
-    else await addCandidate(tryoutId, { name, number, positions, team, note });
+    // Clothes are per night: next week's shirt does not overwrite tonight's.
+    const wearing = { ...(kid?.wearing ?? {}) };
+    if (session) { if (wear.trim()) wearing[session.id] = wear.trim(); else delete wearing[session.id]; }
+    if (kid) await updateCandidate(kid.id, { name: name.trim(), number: number.trim() || undefined, positions: positions.trim() || undefined, team: team.trim() || undefined, note: note.trim() || undefined, wearing: Object.keys(wearing).length ? wearing : undefined });
+    else await addCandidate(tryoutId, { name, number, positions, team, note, wearing });
     onClose();
   };
   return (
@@ -250,6 +257,7 @@ function KidSheet({ tryoutId, kid, onClose }: { tryoutId: string; kid?: Candidat
       <button className="btn primary" disabled={!name.trim()} onClick={save}>Save</button>
     </>}>
       <div className="field"><label htmlFor="kid-name">Name</label><input id="kid-name" className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
+      {session && <div className="field"><label htmlFor="kid-wear">What he is wearing, {session.label}</label><input id="kid-wear" className="input" placeholder="bright green shirt, red cleats" value={wear} onChange={(e) => setWear(e.target.value)} /></div>}
       <div className="field"><label htmlFor="kid-num">Number tonight (jersey or pinnie)</label><input id="kid-num" className="input" inputMode="numeric" value={number} onChange={(e) => setNumber(e.target.value)} /></div>
       <div className="field"><label htmlFor="kid-pos">Positions</label><input id="kid-pos" className="input" value={positions} onChange={(e) => setPositions(e.target.value)} /></div>
       <div className="field"><label htmlFor="kid-team">Current team</label><input id="kid-team" className="input" value={team} onChange={(e) => setTeam(e.target.value)} /></div>
@@ -318,7 +326,7 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
       </div>
       {settings.sync?.enabled && <p className="muted small">{fetching === 'done' ? 'Up to date as of right now.' : fetching === 'failed' ? 'Could not reach the other phones just now (no signal?). Your own marks are safe on this phone and go out when the signal is back.' : 'Other coaches\' marks arrive by themselves every couple of minutes while this is open, or tap to get them now.'}</p>}
       {openRow && <KidBoardSheet tryout={tryout} row={openRow} onClose={() => setOpen(null)} />}
-      {print && <PrintSheet title={`${tryout.name} board`} html={renderBoardHtml(tryout, rows, { sessionLabel, coaches: coaches.map((c) => c.by), asOf: shortDate(localDate(new Date())) })} fileName={`tryout-board.html`} onClose={() => setPrint(false)} />}
+      {print && <PrintSheet title={`${tryout.name} board`} html={renderBoardHtml(tryout, rows, { sessionLabel, coaches: coaches.map((c) => c.by), asOf: shortDate(localDate(new Date())), sessionId: sessionId || undefined })} fileName={`tryout-board.html`} onClose={() => setPrint(false)} />}
     </div>
   );
 }
@@ -331,6 +339,7 @@ function KidBoardSheet({ tryout, row, onClose }: { tryout: Tryout; row: BoardRow
   return (
     <Sheet title={kidName(c)} onClose={onClose} footer={<button className="btn primary" onClick={onClose}>Done</button>}>
       {kidLine(c) && <div className="muted small" style={{ marginBottom: 8 }}>{kidLine(c)}</div>}
+      {tryout.sessions.filter((s) => c.wearing?.[s.id]).map((s) => <div key={s.id} className="small" style={{ marginBottom: 6 }}><span className="wear">{c.wearing![s.id]}</span>{tryout.sessions.length > 1 ? <span className="muted"> {s.label}</span> : null}</div>)}
       <div className="small" style={{ marginBottom: 8 }}><strong>Overall {fmt(row.overall)}</strong> from {row.stationsScored} station{row.stationsScored === 1 ? '' : 's'} · scored by {row.coaches.join(', ') || 'no one yet'}</div>
       <div className="list">
         {row.cells.map((x) => (
@@ -377,7 +386,7 @@ function SetupTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
         <div className="list">
           {kids.map((c) => (
             <button key={c.id} className="item tappable small" style={{ textAlign: 'left', opacity: c.hidden ? 0.5 : 1 }} onClick={() => setEditKid(c)}>
-              <div className="grow"><div className="title">{kidName(c)}{c.hidden ? ' (off the list)' : ''}</div><div className="sub">{kidLine(c) || 'tap to add positions or a number'}</div></div><span className="chev">›</span>
+              <div className="grow"><div className="title">{kidName(c)}{c.hidden ? ' (off the list)' : ''}</div><div className="sub">{[kidLine(c), wearingOn(c, tryout)].filter(Boolean).join(' · ') || 'tap to add positions, a number or what he is wearing'}</div></div><span className="chev">›</span>
             </button>
           ))}
           {kids.length === 0 && <div className="muted small">Nobody yet. Paste the sign-up list, or add kids one at a time as they walk up.</div>}
@@ -443,7 +452,7 @@ function SetupTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
         </div>
       )}
 
-      {editKid && <KidSheet tryoutId={tryout.id} kid={editKid === 'new' ? undefined : editKid} onClose={() => setEditKid(null)} />}
+      {editKid && <KidSheet tryoutId={tryout.id} kid={editKid === 'new' ? undefined : editKid} session={tryout.sessions.find((s) => s.id === currentSession(tryout, localDate(new Date())))} onClose={() => setEditKid(null)} />}
       {paste !== null && (
         <Sheet title="Paste a list of kids" onClose={() => setPaste(null)} footer={<button className="btn primary" disabled={!parsed.length} onClick={async () => { for (const p of parsed) await addCandidate(tryout.id, p); toast.show(`${parsed.length} added`); setPaste(null); }}>{parsed.length ? `Add ${parsed.length}` : 'Nothing to add yet'}</button>}>
           <p className="muted small" style={{ marginTop: 0 }}>One kid per line: name, positions, current team. Or paste rows copied from the sign-up sheet with its heading row; birthdays, parents and phone numbers are dropped.</p>

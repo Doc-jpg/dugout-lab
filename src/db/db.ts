@@ -385,10 +385,12 @@ export async function updateTryout(id: string, patch: Partial<Tryout>, database:
   await database.tryouts.put({ ...cur, ...patch, id, updatedAt: nowIso() });
 }
 
-export async function addCandidate(tryoutId: string, input: { name: string; number?: string; positions?: string; team?: string; note?: string }, database: DugoutLabDB = db): Promise<Candidate> {
+export async function addCandidate(tryoutId: string, input: { name: string; number?: string; positions?: string; team?: string; note?: string; wearing?: Record<string, string> }, database: DugoutLabDB = db): Promise<Candidate> {
   const ts = nowIso();
   const clean = (v?: string) => (v && v.trim() ? v.trim() : undefined);
   const c: Candidate = { id: newId(), tryoutId, name: input.name.trim(), number: clean(input.number), positions: clean(input.positions), team: clean(input.team), note: clean(input.note), createdAt: ts, updatedAt: ts };
+  const wearing = Object.fromEntries(Object.entries(input.wearing ?? {}).filter(([, v]) => v && v.trim()).map(([k, v]) => [k, v.trim()]));
+  if (Object.keys(wearing).length) c.wearing = wearing;
   await database.candidates.put(c);
   return c;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DugoutLabDB, createTryout, addCandidate, updateCandidate, setScore, scoreId, deleteTryout, updateTryout, getSettings, saveSettings } from '../src/db/db';
-import { parseCandidateList, buildBoard, sortBoard, currentSession, myProgress, coachCounts, renderBoardHtml, sortCandidates, fmt, DEFAULT_STATIONS, visibleStations } from '../src/engine/tryout';
+import { wearingOn, parseCandidateList, buildBoard, sortBoard, currentSession, myProgress, coachCounts, renderBoardHtml, sortCandidates, fmt, DEFAULT_STATIONS, visibleStations } from '../src/engine/tryout';
 import { LEAN_STATION, NOTE_STATION, nowIso, type Candidate, type Tryout, type TryoutScore } from '../src/engine/types';
 
 let n = 0;
@@ -130,6 +130,17 @@ describe('helpers', () => {
   it('sorts kids by number as a number, then name', () => {
     expect(sortCandidates([kid('1', 'Zed', { number: '12' }), kid('2', 'Amy'), kid('3', 'Bo', { number: '7' }), kid('4', 'Al')]).map((c) => c.name)).toEqual(['Bo', 'Zed', 'Al', 'Amy']);
   });
+  it('what a kid is wearing is kept per night; with no night asked, the latest night written down', () => {
+    const c = kid('a', 'Alex', { wearing: { s1: 'bright green shirt' } });
+    expect(wearingOn(c, tryout(), 's1')).toBe('bright green shirt');
+    expect(wearingOn(c, tryout(), 's2')).toBeUndefined();
+    expect(wearingOn(c, tryout())).toBe('bright green shirt');
+    expect(wearingOn(kid('b', 'Ben', { wearing: { s1: 'red hat', s2: 'gray hoodie' } }), tryout())).toBe('gray hoodie');
+    expect(wearingOn(kid('c', 'Cy'), tryout())).toBeUndefined();
+    const html = renderBoardHtml(tryout(), buildBoard(tryout(), [c], []), { sessionLabel: 'Night 1', coaches: [], asOf: 'Nov 23', sessionId: 's1' });
+    expect(html).toContain('Wearing: bright green shirt');
+    expect(renderBoardHtml(tryout(), buildBoard(tryout(), [c], []), { sessionLabel: 'Night 2', coaches: [], asOf: 'Nov 30', sessionId: 's2' })).not.toContain('Wearing');
+  });
   it('the starting stations cover the plan and can be hidden', () => {
     expect(DEFAULT_STATIONS).toEqual(['Catch play', 'Ground balls', 'Fly balls', 'Pitching', 'Catching', 'Hitting', 'Speed and athleticism', 'Coachability and effort']);
     expect(visibleStations(tryout()).map((s) => s.id)).toEqual(['gb', 'hit', 'pit']);
@@ -140,8 +151,8 @@ describe('storage', () => {
   it('marking the same thing twice updates one record; clearing keeps the note', async () => {
     const d = fresh();
     const t = await createTryout({ name: 'Warriors tryouts', stations: DEFAULT_STATIONS.map((label) => ({ label })), sessions: [{ label: 'Night 1', date: '2026-11-23' }] }, d);
-    const c = await addCandidate(t.id, { name: ' Alex Rivers ', number: '12', positions: ' ', team: 'Storm' }, d);
-    expect(c).toMatchObject({ name: 'Alex Rivers', number: '12', team: 'Storm' });
+    const c = await addCandidate(t.id, { name: ' Alex Rivers ', number: '12', positions: ' ', team: 'Storm', wearing: { [t.sessions[0].id]: ' bright green shirt ', other: '  ' } }, d);
+    expect(c).toMatchObject({ name: 'Alex Rivers', number: '12', team: 'Storm', wearing: { [t.sessions[0].id]: 'bright green shirt' } });
     expect(c.positions).toBeUndefined();
     const key = { tryoutId: t.id, candidateId: c.id, stationId: t.stations[0].id, sessionId: t.sessions[0].id, by: 'Deren' };
     await setScore({ ...key, value: 3 }, d);

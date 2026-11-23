@@ -36,6 +36,13 @@ export const SPLIT_AT = 2;
 
 export const visibleStations = (t: Tryout): TryoutStation[] => t.stations.filter((s) => !s.hidden);
 
+/** What he has on that night; with no night given, the latest night anyone wrote it down. */
+export function wearingOn(c: Candidate, t: Tryout, sessionId?: string): string | undefined {
+  if (sessionId) return c.wearing?.[sessionId] || undefined;
+  for (const s of [...t.sessions].reverse()) if (c.wearing?.[s.id]) return c.wearing[s.id];
+  return undefined;
+}
+
 /** Number first when it is a number ("7" before "12"), then name. */
 export function sortCandidates(list: Candidate[]): Candidate[] {
   const num = (c: Candidate) => { const n = parseInt(c.number ?? '', 10); return Number.isFinite(n) ? n : Infinity; };
@@ -207,12 +214,12 @@ const stationName = (t: Tryout, id: string) => (id === LEAN_STATION ? 'Lean' : i
 const sessionName = (t: Tryout, id: string) => t.sessions.find((s) => s.id === id)?.label ?? '';
 
 /** A printable board for the coaches' talk afterward. Coach-only, and it says so on the page. */
-export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: { sessionLabel: string; coaches: string[]; asOf: string }): string {
+export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: { sessionLabel: string; coaches: string[]; asOf: string; sessionId?: string }): string {
   const stations = visibleStations(t);
   const head = `<tr><th>Kid</th><th>Overall</th>${stations.map((s) => `<th>${esc(s.label)}</th>`).join('')}<th>Yes / Maybe / No</th><th>Decision</th></tr>`;
   const body = rows.map((r) => {
     const c = r.candidate;
-    const who = `<strong>${c.number ? `#${esc(c.number)} ` : ''}${esc(c.name)}</strong>${c.positions || c.team ? `<div class="m">${esc([c.positions, c.team].filter(Boolean).join(' · '))}</div>` : ''}`;
+    const who = `<strong>${c.number ? `#${esc(c.number)} ` : ''}${esc(c.name)}</strong>${c.positions || c.team ? `<div class="m">${esc([c.positions, c.team].filter(Boolean).join(' · '))}</div>` : ''}${wearingOn(c, t, opts.sessionId) ? `<div class="m">Wearing: ${esc(wearingOn(c, t, opts.sessionId)!)}</div>` : ''}`;
     const cells = r.cells.map((x) => `<td class="${x.split ? 'split' : ''}">${fmt(x.avg)}${x.byCoach.length > 1 ? `<div class="m">${x.byCoach.map((b) => `${esc(b.by)} ${fmt(b.value)}`).join(', ')}</div>` : ''}</td>`).join('');
     return `<tr><td>${who}</td><td><strong>${fmt(r.overall)}</strong><div class="m">${r.stationsScored} of ${stations.length} stations</div></td>${cells}<td>${r.leans.yes.length} / ${r.leans.maybe.length} / ${r.leans.no.length}</td><td>${c.decision ? esc(DECISION_LABEL[c.decision]) : ''}${c.decisionNote ? `<div class="m">${esc(c.decisionNote)}</div>` : ''}</td></tr>`;
   }).join('');
