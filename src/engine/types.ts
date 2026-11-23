@@ -184,6 +184,24 @@ export interface Goal {
   fromPlayer?: boolean;
 }
 
+export interface LevelLogEntry {
+  category: Category;
+  level?: Level;
+  ts: ISODateTime;
+  approx?: boolean;
+}
+
+/** The log after the coach sets `category` to `next`. Nothing is added when the level did not change. */
+export function logLevelChange(p: { levels: Partial<Record<Category, Level>>; levelLog?: LevelLogEntry[]; createdAt: ISODateTime }, category: Category, next: Level | undefined, at: ISODateTime = nowIso()): LevelLogEntry[] {
+  const log = [...(p.levelLog ?? [])];
+  const prev = p.levels[category];
+  if (prev === next) return log;
+  // A level set before the log existed: keep it as the starting point, dated only as "earlier".
+  if (prev && !log.some((e) => e.category === category)) log.push({ category, level: prev, ts: p.createdAt, approx: true });
+  log.push({ category, level: next, ts: at });
+  return log;
+}
+
 export interface Player {
   id: ID;
   teamId: ID;
@@ -217,6 +235,11 @@ export interface Player {
   /** Per-category level set by the coach. Missing = not assessed yet. */
   levels: Partial<Record<Category, Level>>;
   statuses: Partial<Record<Category, SkillStatus>>;
+  /**
+   * Every time the coach sets a level, in order, so a progress page can say where he started.
+   * `approx` marks a level that was already there before the log began (its date is not known).
+   */
+  levelLog?: LevelLogEntry[];
   /** Imported from Dugout Dad: keeps the same id so a later import matches. */
   importedFrom?: 'dugout-dad';
   /** Temporary limits (sore arm, doctor's note, out this week). Expire on their own when `until` passes. */
@@ -498,7 +521,7 @@ export interface ParentUpdate {
   id: ID;
   playerId: ID;
   ts: ISODateTime;
-  kind: 'update' | 'home_plan' | 'scorecard';
+  kind: 'update' | 'home_plan' | 'scorecard' | 'progress';
   channel: 'text' | 'email' | 'file' | 'copy';
   /** The text as drafted (what the coach saw before sending). */
   text: string;

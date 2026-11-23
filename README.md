@@ -22,6 +22,7 @@ Personalized youth baseball practice planning and player development. Private, o
 | Suggestions from observations, always labeled "Suggestion" or "Suggestion, not a diagnosis", with the notes they are based on; game notes count | Working |
 | Pitch Smart awareness: rest days from logged pitch counts, unknown counts and other-team players flagged, never "cleared" by missing data | Working |
 | Progress: team grid of your assessments, due-for-review list, suggestions, attendance, what the team has worked on. No rankings | Working |
+| Progress over time per player: counted reps from narrated drills by skill (last practice, last 5, last 10, everything), a change named only when it beats chance, levels then and now; a parent page with text and email drafts | Working |
 | Backup (ZIP with checksums) and restore (merge keeps newer local edits; replace for recovery) | Working |
 | Roster import from a Dugout Dad weekend archive (explicit, previewed, never touches Dugout Dad) | Working |
 | Family: parent contacts, what each family gets, home plan (two or three yard drills from his goals and notes, with cues, reps and a parent tip), text and email drafts opened in Messages or Mail (never auto-sent), printable scorecard with the team as an anonymous band, who-is-due list, update history | Working |

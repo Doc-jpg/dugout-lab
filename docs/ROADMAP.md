@@ -15,7 +15,7 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 - Suggestions from observations, next level: tie a suggestion to a specific saved version or progression and track whether it was tried.
 - Mental-game routines as a per-player card (pre-at-bat routine, reset routine) printable for the dugout.
 - Baseball IQ scenario generator tied to current team priorities (whiteboard questions and small-sided games).
-- More detailed skill tracking per sub-skill (for example backhand vs forehand inside infield).
+- Done 2026-11-22 (v0.8.0): counted reps by sub-skill from narrated drills (backhand against forehand, throws on target, timing, contact and the rest), over last practice, last 5, last 10 or everything, on the Progress tab and as a parent page with text and email drafts. Next: let a coach tap a count in without narrating; counts on the printed scorecard; a coach-picked date range.
 - Lineup and position planning view using the roster (no scoring).
 - Voice notes: speech-to-text is in (browser recognition, needs a signal). Next: keep the audio clip with MediaRecorder for playback, and an offline transcription option.
 
@@ -23,7 +23,7 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 - Video reference links and locally stored clips, with no claims of mechanical diagnosis.
 - Richer analytics with honest sample sizes.
 - Done 2026-11-02: multi-coach sync by invite link with per-coach revocation (no accounts; a team key plus per-coach tokens).
-- Parent-facing summaries delivered through a server (a link that stays current) rather than a file; never private notes. Phase 1 already drafts texts, emails, home plans and scorecards from the phone.
+- Parent-facing summaries delivered through a server (a link that stays current) rather than a file; never private notes. Phase 1 already drafts texts, emails, home plans, scorecards and (v0.8.0) progress pages from the phone. A standing link per family is the natural next step for the progress page, and it is the first thing that would put kids' data on a server, so it needs Deren's say-so.
 - Conflict review screen (what merged, what the newer edit replaced).
 
 ## Product and resale

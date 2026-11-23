@@ -5,13 +5,14 @@ import { updatePlayer, addGoal, addObservation, addThrowing, playerName, deleteP
 import { suggestionsFor } from '../../engine/suggestions';
 import { throwingFlags } from '../../engine/pitchsmart';
 import {
-  CATEGORIES, CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, APPROACH_LABEL, POSITIONS, AGE_GROUPS, today, teamAgeGroup, RESTRICTION_LABEL, activeRestrictions,
+  CATEGORIES, CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, APPROACH_LABEL, POSITIONS, AGE_GROUPS, today, teamAgeGroup, RESTRICTION_LABEL, activeRestrictions, logLevelChange,
   type RestrictionKind, type Restriction,
   type Category, type Level, type SkillStatus, type CoachingApproach, type Player, type Hand, type Position, type Goal
 } from '../../engine/types';
 import { READ_LABEL, SmartNoteSheet } from '../components/SmartNote';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
 import { FamilyPanel } from '../components/FamilyPanel';
+import { ProgressCard } from '../components/ProgressCard';
 
 /**
  * The living profile. Answers, at the top: what does he need to work on today, what did we do
@@ -186,8 +187,9 @@ export function PlayerPage() {
               })}
             </div>
           </div>
+          <ProgressCard player={p} mode="coach" />
           <div className="card">
-            <div className="section-title" style={{ marginTop: 0 }}><h3>Trend, plainly</h3></div>
+            <div className="section-title" style={{ marginTop: 0 }}><h3>Quick reads, plainly</h3></div>
             <TrendLines observations={observations} />
             <div className="small muted" style={{ marginTop: 6 }}>Attendance: {attended} of {attendance.length} finished practices.</div>
           </div>
@@ -313,7 +315,7 @@ function LevelSheet({ p, category, onClose, onSaved }: { p: Player; category: Ca
   const [level, setLevel] = useState<Level | undefined>(p.levels[category]);
   const [status, setStatus] = useState<SkillStatus | undefined>(p.statuses[category]);
   return (
-    <Sheet title={CATEGORY_LABEL[category]} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" onClick={async () => { await updatePlayer(p.id, { levels: { ...p.levels, [category]: level }, statuses: { ...p.statuses, [category]: status } }); onSaved(); }}>Save</button></>}>
+    <Sheet title={CATEGORY_LABEL[category]} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" onClick={async () => { await updatePlayer(p.id, { levels: { ...p.levels, [category]: level }, statuses: { ...p.statuses, [category]: status }, levelLog: logLevelChange(p, category, level) }); onSaved(); }}>Save</button></>}>
       <div className="field"><label>Level</label><div className="chips">{([1, 2, 3, 4, 5] as Level[]).map((l) => <button key={l} className={`chip ${level === l ? 'on' : ''}`} onClick={() => setLevel(level === l ? undefined : l)}>{l} {LEVEL_LABEL[l]}</button>)}</div></div>
       <div className="field"><label>Status</label><div className="chips">{(Object.keys(STATUS_LABEL) as SkillStatus[]).map((s) => <button key={s} className={`chip sm ${status === s ? 'on' : ''}`} onClick={() => setStatus(status === s ? undefined : s)}>{STATUS_LABEL[s]}</button>)}</div></div>
       <p className="muted small">Your assessment, with today's date behind it. Change it whenever you see something new.</p>

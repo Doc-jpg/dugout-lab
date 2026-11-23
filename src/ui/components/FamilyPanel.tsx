@@ -5,6 +5,7 @@ import { homePlanFor, parentTextDraft, parentEmailDraft, scorecardFor, renderSco
 import { CATEGORY_LABEL, type Player, type ParentContact } from '../../engine/types';
 import { Sheet, useToast } from '../components/Sheet';
 import { PrintSheet } from '../components/PrintSheet';
+import { ProgressCard } from '../components/ProgressCard';
 
 /**
  * Family: who to reach, what to send, and the drafts. The app never sends anything; it opens
@@ -65,7 +66,7 @@ export function FamilyPanel({ player }: { player: Player }) {
         <div className="section-title" style={{ marginTop: 0 }}><h3>Family</h3><button className="btn sm" onClick={() => setEditing(true)}>{player.parents?.length ? 'Edit' : '+ Add contact'}</button></div>
         {(player.parents ?? []).map((c, i) => <div key={i} className="small">{c.name}{c.relation ? ` (${c.relation})` : ''}{c.phone ? ` · ${c.phone}` : ''}{c.email ? ` · ${c.email}` : ''}{c.preferred ? ` · prefers ${c.preferred}` : ''}</div>)}
         {!player.parents?.length && <div className="muted small">No contact yet. Add a parent to draft texts and emails.</div>}
-        <div className="small muted" style={{ marginTop: 6 }}>Shares: {share === 'none' ? 'nothing (family opted out)' : share === 'summary' ? 'update and home work' : 'update, home work and scorecard'}</div>
+        <div className="small muted" style={{ marginTop: 6 }}>Shares: {share === 'none' ? 'nothing (family opted out)' : share === 'summary' ? 'update, home work and progress' : 'update, home work, progress and scorecard'}</div>
       </div>
 
       <div className="card">
@@ -97,6 +98,8 @@ export function FamilyPanel({ player }: { player: Player }) {
           <p className="muted small" style={{ marginTop: 8 }}>What goes in: wins first, what we are working on, the home work. What never goes in: your private notes on how he handles frustration, raw note text, or anything about other kids. The scorecard shows the team as a band, not as names.</p>
         </div>
       )}
+
+      {share !== 'none' && <ProgressCard player={player} mode="family" />}
 
       {updates.length > 0 && (
         <div className="card">
@@ -143,7 +146,7 @@ function ContactSheet({ player, onClose, onSaved }: { player: Player; onClose: (
       <button className="btn sm" onClick={() => setList([...list, { name: '' }])}>+ Another contact</button>
       <div className="field" style={{ marginTop: 12 }}><label>What this family gets</label>
         <div className="chips">
-          <button className={`chip sm ${share === 'summary' ? 'on' : ''}`} onClick={() => setShare('summary')}>Update and home work</button>
+          <button className={`chip sm ${share === 'summary' ? 'on' : ''}`} onClick={() => setShare('summary')}>Update, home work, progress</button>
           <button className={`chip sm ${share === 'scorecard' ? 'on' : ''}`} onClick={() => setShare('scorecard')}>Plus scorecard</button>
           <button className={`chip sm ${share === 'none' ? 'on' : ''}`} onClick={() => setShare('none')}>Nothing (opted out)</button>
         </div>

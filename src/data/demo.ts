@@ -65,6 +65,31 @@ export async function loadDemoData(): Promise<{ teamId: string; practiceId: stri
     await addThrowing({ playerId: 'demo-p05', date: today(), pitches: 62, kind: 'game', source: 'manual', note: 'Demo: yesterday\'s game' });
     await addThrowing({ playerId: 'demo-p10', date: today(), pitches: null, kind: 'other_team', source: 'manual', note: 'Demo: threw for his school team, count unknown' });
   }
+  // Counted reps from narrated drills, spread over a month, so the progress page has something to show:
+  // Ellis's backhand goes from mostly bobbled to mostly clean; Jonah's first step holds about steady.
+  const counted = (await db.observations.where('playerId').equals('demo-p04').toArray()).some((o) => o.tags?.length);
+  if (!counted) {
+    const at = (daysAgo: number, n: number) => new Date(Date.now() - daysAgo * 86400000 + n * 1000).toISOString();
+    const say = async (playerId: string, daysAgo: number, category: Category, good: boolean, tags: string[], n: number) => {
+      for (let i = 0; i < n; i++) await addObservation({ playerId, read: good ? 'got_it' : 'working', category, tags, source: 'practice', ts: at(daysAgo, i + (good ? 0 : 30)) });
+    };
+    // One rep per word: b or f for the side, + or - for the glove, then + or - for the throw.
+    const ellis: Array<[number, string]> = [[27, 'b-- b-- b-+ f++'], [23, 'b+- b-- b-+ f++'], [20, 'b++ b-- b-- f-+'], [16, 'b++ b+- b-+ f++'], [13, 'b++ b++ b-- f++'], [9, 'b++ b++ b+- b-+ f++'], [6, 'b++ b++ f+-'], [2, 'b++ b++ b++ f++']];
+    for (const [day, words] of ellis) {
+      let i = 0;
+      for (const w of words.split(' ')) {
+        const tags = [w[1] === '+' ? 'Fielded clean' : 'Bobbled', w[0] === 'b' ? 'Backhand' : 'Forehand', w[2] === '+' ? 'Throw on target' : 'Throw off target'];
+        await addObservation({ playerId: 'demo-p04', read: w.slice(1) === '++' ? 'got_it' : 'working', category: 'infield', tags, source: 'practice', ts: at(day, i++) });
+      }
+    }
+    const jonah: Array<[number, number, number]> = [[23, 2, 2], [16, 2, 1], [13, 2, 2], [9, 3, 2], [2, 3, 2]];
+    for (const [day, charged, sat] of jonah) {
+      await say('demo-p02', day, 'outfield', true, ['Charged it', 'Fielded clean'], charged);
+      await say('demo-p02', day, 'outfield', false, ['Sat back'], sat);
+    }
+    const e = await db.players.get('demo-p04');
+    if (e && !e.levelLog?.length) await db.players.update('demo-p04', { levelLog: [{ category: 'infield', level: 1, ts: at(40, 0) }, { category: 'infield', level: e.levels.infield ?? 2, ts: at(6, 0) }] });
+  }
   // Loading the demo switches to it; removing it switches back to the coach's own team.
   const settings = await saveSettings({ teamId: DEMO_TEAM_ID });
   // One finished practice from last week, one planned for today.

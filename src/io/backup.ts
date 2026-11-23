@@ -153,7 +153,7 @@ export function stamp(r: any): string {
   return r.updatedAt ?? r.ts ?? r.createdAt ?? '';
 }
 
-const UNION_LIST_FIELDS = ['cues', 'strengths', 'challenges', 'approaches', 'positions', 'nicknames'] as const;
+const UNION_LIST_FIELDS = ['cues', 'strengths', 'challenges', 'approaches', 'positions', 'nicknames', 'levelLog'] as const;
 
 /**
  * Two coaches edit the same kid on different days. Whole-record "newer wins" would erase the

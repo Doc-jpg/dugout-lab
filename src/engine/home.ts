@@ -20,7 +20,7 @@ export interface BrandContext {
   coachName?: string;
 }
 
-function brandOf(ctx: BrandContext) {
+export function brandOf(ctx: BrandContext) {
   const b = ctx.team?.brand;
   const primary = b?.primary && hexToRgb(b.primary) ? usableAsAccent(b.primary) : '#1d4e89';
   const accent = b?.accent && hexToRgb(b.accent) ? b.accent : '#9fb8d8';
@@ -336,21 +336,21 @@ export function scorecardFor(player: Player, teamPlayers: Player[], observations
   };
 }
 
-function brandHeader(ctx?: BrandContext): string {
+export function brandHeader(ctx?: BrandContext): string {
   const b = brandOf(ctx ?? {});
   return `<div class="brandbar">${b.logo ? `<img src="${b.logo}" alt="">` : ''}<div><div class="n">${esc(b.name)}</div>${b.tagline ? `<div class="t">${esc(b.tagline)}</div>` : ''}</div></div>`;
 }
-function brandFooter(ctx?: BrandContext): string {
+export function brandFooter(ctx?: BrandContext): string {
   const b = brandOf(ctx ?? {});
   const coaches = b.coaches.length ? `<div class="coaches"><strong>Coaches:</strong> ${b.coaches.map((c) => esc([c.name, c.role ? `(${c.role})` : '', c.phone, c.email].filter(Boolean).join(' '))).join(' · ')}</div>` : '';
   return `${coaches}${b.footer ? `<div class="muted small" style="margin-top:6px">${esc(b.footer)}</div>` : ''}`;
 }
 
-function esc(s: string): string {
+export function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const pageCss = (primary: string, accent: string, ink: string) => `:root{--p:${primary};--a:${accent};--ink:${ink}}body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:24px;color:#172238;max-width:720px}h1{font-size:24px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px;border-bottom:2px solid var(--p);padding-bottom:3px}.brandbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid var(--p)}.brandbar img{height:48px;width:48px;object-fit:contain}.brandbar .n{font-weight:800;font-size:18px;color:var(--p)}.brandbar .t{color:#667;font-size:13px}.coaches{margin-top:18px;padding-top:10px;border-top:1px solid #dde;font-size:13px;color:#445}.muted{color:#667}.small{font-size:13px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px solid #dde;padding:6px 4px;text-align:left}th{font-weight:700;color:var(--p)}.band{display:inline-block;height:10px;background:#dde6f2;border-radius:5px;position:relative;width:120px;vertical-align:middle}.band i{position:absolute;top:-3px;width:16px;height:16px;border-radius:50%;background:var(--p);margin-left:-8px}.band b{position:absolute;top:0;height:10px;background:var(--a);opacity:.7;border-radius:5px}.cue{display:inline-block;background:#eef2f7;border-radius:6px;padding:2px 8px;margin:2px 4px 2px 0;font-weight:600;font-size:13px}ol{padding-left:20px}@media print{body{margin:12px}}`;
+export const pageCss = (primary: string, accent: string, ink: string) => `:root{--p:${primary};--a:${accent};--ink:${ink}}body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:24px;color:#172238;max-width:720px}h1{font-size:24px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px;border-bottom:2px solid var(--p);padding-bottom:3px}.brandbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid var(--p)}.brandbar img{height:48px;width:48px;object-fit:contain}.brandbar .n{font-weight:800;font-size:18px;color:var(--p)}.brandbar .t{color:#667;font-size:13px}.coaches{margin-top:18px;padding-top:10px;border-top:1px solid #dde;font-size:13px;color:#445}.muted{color:#667}.small{font-size:13px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px solid #dde;padding:6px 4px;text-align:left}th{font-weight:700;color:var(--p)}.band{display:inline-block;height:10px;background:#dde6f2;border-radius:5px;position:relative;width:120px;vertical-align:middle}.band i{position:absolute;top:-3px;width:16px;height:16px;border-radius:50%;background:var(--p);margin-left:-8px}.band b{position:absolute;top:0;height:10px;background:var(--a);opacity:.7;border-radius:5px}.cue{display:inline-block;background:#eef2f7;border-radius:6px;padding:2px 8px;margin:2px 4px 2px 0;font-weight:600;font-size:13px}ol{padding-left:20px}@media print{body{margin:12px}}`;
 
 /** Printable scorecard. The player's own numbers; the team as a band. */
 export function renderScorecardHtml(card: Scorecard): string {
