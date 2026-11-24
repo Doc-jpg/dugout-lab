@@ -204,3 +204,10 @@ Deren sent screenshots of a paid coaching product whose main draw is animated dr
 - No religion in the tagline or footer (Deren, 2026-11-14). No coach names in the code; coaches are listed per team on the phone.
 - To hand the app to another program later: change `HOUSE_BRAND`, or empty it for a plain app. The white-label build variables still set the installed name and bar color.
 - **Released the morning after it was built,** not during the first tryout night, so the app did not update itself under two coaches mid-scoring.
+
+## 2026-11-23, the tryout report (v0.9.4) (Deren, after night one: "include all the commentary ... put it under each kid and just like delineate which coach said it ... eliminate drills or categories of drills that we didn't run tonight and only include the three kids that showed up")
+
+- **The printed board is now a report of what happened.** A kid with no mark, lean or note is left out. A station nobody scored is left out. A line at the bottom says what was left out, so nothing vanishes silently. The on-screen Board still lists everyone.
+- **Summary first, then kid by kid.** The summary keeps the averages and the shaded disagreements. Each kid then gets every coach's marks side by side, who leans yes, maybe or no by name, the decision, and every note grouped under the coach who wrote it with the station it was about.
+- **It prints upright unless more than five stations were run**, then sideways.
+- **Why in the app and not made by Claude:** the marks live on the coaches' phones and the linked-phone server under the team's key. Claude does not hold that key and the kids' names stay out of Claude's workspace and the public code, so the report is made on the phone.

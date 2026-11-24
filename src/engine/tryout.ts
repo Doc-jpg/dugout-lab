@@ -220,31 +220,62 @@ const stationName = (t: Tryout, id: string) => (id === LEAN_STATION ? 'Lean' : i
 const sessionName = (t: Tryout, id: string) => t.sessions.find((s) => s.id === id)?.label ?? '';
 
 /**
- * A printable board for the coaches' talk afterward. Coach-only, and it says so on the page.
- * With a team it carries the team's header (name, logo, color) and prints sideways so the stations fit.
+ * The printable tryout report for the coaches' talk afterward. Coach-only, and it says so on the page.
+ * It shows only what happened: kids nobody marked and stations nobody scored are left out and named
+ * at the bottom. A summary table first, then each kid with every coach's marks side by side and
+ * every coach's notes under his own name. With a team it carries the team's header. It prints sideways
+ * only when more than five stations were run.
  */
 export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: { sessionLabel: string; coaches: string[]; asOf: string; sessionId?: string; brand?: BrandContext }): string {
   const b = opts.brand?.team ? brandOf(opts.brand) : undefined;
-  const stations = visibleStations(t);
-  const head = `<tr><th>Kid</th><th>Overall</th>${stations.map((s) => `<th>${esc(s.label)}</th>`).join('')}<th>Yes / Maybe / No</th><th>Decision</th></tr>`;
-  const body = rows.map((r) => {
+  const allStations = visibleStations(t);
+  const seen = (r: BoardRow) => r.stationsScored > 0 || r.notes.length > 0 || r.leans.yes.length + r.leans.maybe.length + r.leans.no.length > 0;
+  const shown = rows.filter(seen);
+  const absent = rows.length - shown.length;
+  // A station is in the report when at least one kid in it has a mark there.
+  const ran = allStations.map((st, i) => ({ st, i })).filter(({ i }) => shown.some((r) => r.cells[i]?.avg !== undefined));
+  const skipped = allStations.filter((st) => !ran.some((x) => x.st.id === st.id));
+  const kidName = (c: Candidate) => `${c.number ? `#${esc(c.number)} ` : ''}${esc(c.name)}`;
+  const leanWords = (r: BoardRow) => [r.leans.yes.length ? `Yes: ${r.leans.yes.map(esc).join(', ')}` : '', r.leans.maybe.length ? `Maybe: ${r.leans.maybe.map(esc).join(', ')}` : '', r.leans.no.length ? `No: ${r.leans.no.map(esc).join(', ')}` : ''].filter(Boolean).join(' · ');
+
+  const head = `<tr><th>Kid</th><th>Overall</th>${ran.map(({ st }) => `<th>${esc(st.label)}</th>`).join('')}<th>Yes / Maybe / No</th><th>Decision</th></tr>`;
+  const body = shown.map((r) => {
     const c = r.candidate;
-    const who = `<strong>${c.number ? `#${esc(c.number)} ` : ''}${esc(c.name)}</strong>${c.positions || c.team ? `<div class="m">${esc([c.positions, c.team].filter(Boolean).join(' · '))}</div>` : ''}${wearingOn(c, t, opts.sessionId) ? `<div class="m">Wearing: ${esc(wearingOn(c, t, opts.sessionId)!)}</div>` : ''}`;
-    const cells = r.cells.map((x) => `<td class="${x.split ? 'split' : ''}">${fmt(x.avg)}${x.byCoach.length > 1 ? `<div class="m c">${x.byCoach.map((b) => `${esc(b.by)} ${fmt(b.value)}`).join('<br>')}</div>` : ''}</td>`).join('');
-    return `<tr><td>${who}</td><td><strong>${fmt(r.overall)}</strong><div class="m">${r.stationsScored} of ${stations.length} stations</div></td>${cells}<td style="white-space:nowrap">${r.leans.yes.length} / ${r.leans.maybe.length} / ${r.leans.no.length}</td><td>${c.decision ? esc(DECISION_LABEL[c.decision]) : ''}${c.decisionNote ? `<div class="m">${esc(c.decisionNote)}</div>` : ''}</td></tr>`;
+    const cells = ran.map(({ i }) => r.cells[i]).map((x) => `<td class="${x.split ? 'split' : ''}">${fmt(x.avg)}</td>`).join('');
+    const scoredHere = ran.filter(({ i }) => r.cells[i].avg !== undefined).length;
+    return `<tr><td><strong>${kidName(c)}</strong></td><td><strong>${fmt(r.overall)}</strong><div class="m">${scoredHere} of ${ran.length} stations</div></td>${cells}<td class="c">${r.leans.yes.length} / ${r.leans.maybe.length} / ${r.leans.no.length}</td><td>${c.decision ? esc(DECISION_LABEL[c.decision]) : ''}</td></tr>`;
   }).join('');
-  const notes = rows.filter((r) => r.notes.length).map((r) => `<h3>${r.candidate.number ? `#${esc(r.candidate.number)} ` : ''}${esc(r.candidate.name)}</h3><ul>${r.notes.map((n) => `<li><strong>${esc(n.by)}</strong>, ${esc(stationName(t, n.stationId))}${sessionName(t, n.sessionId) ? `, ${esc(sessionName(t, n.sessionId))}` : ''}: ${esc(n.text)}</li>`).join('')}</ul>`).join('');
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(t.name)} board</title><style>
-body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#16202e;margin:20px}h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:22px 0 6px}h3{font-size:14px;margin:14px 0 2px}
+
+  const kids = shown.map((r) => {
+    const c = r.candidate;
+    const wearing = wearingOn(c, t, opts.sessionId);
+    const scorers = [...new Set(ran.flatMap(({ i }) => r.cells[i].byCoach.map((x) => x.by)))].sort((x, y) => x.localeCompare(y));
+    const marks = scorers.length ? `<table class="k"><thead><tr><th>Station</th>${scorers.map((by) => `<th>${esc(by)}</th>`).join('')}<th>Average</th></tr></thead><tbody>${ran.filter(({ i }) => r.cells[i].avg !== undefined).map(({ st, i }) => {
+      const cell = r.cells[i];
+      return `<tr class="${cell.split ? 'split' : ''}"><td>${esc(st.label)}</td>${scorers.map((by) => { const v = cell.byCoach.find((x) => x.by === by); return `<td>${v ? fmt(v.value) : '–'}</td>`; }).join('')}<td><strong>${fmt(cell.avg)}</strong></td></tr>`;
+    }).join('')}<tr><td><strong>Overall</strong></td>${scorers.map(() => '<td></td>').join('')}<td><strong>${fmt(r.overall)}</strong></td></tr></tbody></table>` : '<div class="m">No station marks.</div>';
+    const lean = leanWords(r);
+    const decision = c.decision ? `<div class="line"><strong>Decision:</strong> ${esc(DECISION_LABEL[c.decision])}${c.decisionNote ? `. ${esc(c.decisionNote)}` : ''}</div>` : '';
+    // Every note, grouped under the coach who wrote it.
+    const writers = [...new Set(r.notes.map((n) => n.by))].sort((x, y) => x.localeCompare(y));
+    const notes = writers.length ? `<div class="notes"><div class="nh">What the coaches wrote</div>${writers.map((by) => `<div class="w"><strong>${esc(by)}</strong><ul>${r.notes.filter((n) => n.by === by).map((n) => `<li>${n.stationId === NOTE_STATION ? '' : `<span class="st">${esc(stationName(t, n.stationId))}:</span> `}${esc(n.text)}${!opts.sessionId && t.sessions.length > 1 && sessionName(t, n.sessionId) ? ` <span class="m">(${esc(sessionName(t, n.sessionId))})</span>` : ''}</li>`).join('')}</ul></div>`).join('')}</div>` : '<div class="m" style="margin-top:6px">No written notes.</div>';
+    return `<section class="kid"><h3>${kidName(c)}</h3><div class="m">${esc([c.positions, c.team, c.note].filter(Boolean).join(' · '))}${wearing ? `${c.positions || c.team || c.note ? ' · ' : ''}Wearing: ${esc(wearing)}` : ''}</div><div class="kb"><div>${marks}${lean ? `<div class="line"><strong>Take him?</strong> ${lean}</div>` : ''}${decision}</div><div>${notes}</div></div></section>`;
+  }).join('');
+
+  const left = [skipped.length ? `Stations nobody scored, left out: ${skipped.map((x) => esc(x.label)).join(', ')}.` : '', absent ? `${absent} ${absent === 1 ? 'kid' : 'kids'} on the list had no marks and ${absent === 1 ? 'is' : 'are'} left out.` : ''].filter(Boolean).join(' ');
+  const p = b?.primary ?? '#16202e';
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(t.name)} report</title><style>
+body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#16202e;margin:20px}h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:22px 0 6px;border-bottom:2px solid ${p};padding-bottom:3px}h3{font-size:16px;margin:0 0 2px;color:${p}}
 table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #d5dbe6;padding:6px 8px;text-align:left;vertical-align:top}th{font-size:12px;color:#44506a}
-.m{color:#5b6680;font-size:11px}.split{background:#fff3d6}.warn{background:#f4f6fa;border-left:4px solid #b4530a;padding:8px 12px;border-radius:4px;font-size:13px}ul{margin:4px 0 0 18px;padding:0}
-.brandbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid ${b?.primary ?? '#16202e'}}.brandbar img{height:48px;width:48px;object-fit:contain}.brandbar .n{font-weight:800;font-size:18px;color:${b?.primary ?? '#16202e'}}.brandbar .t{color:#5b6680;font-size:13px}.foot{margin-top:18px;color:#5b6680;font-size:12px}.c{white-space:nowrap}th:first-child,td:first-child{min-width:170px}th:nth-child(2),td:nth-child(2){min-width:74px}
-@page{size:landscape;margin:10mm}@media print{body{margin:0}tr{break-inside:avoid}thead{display:table-header-group}.split{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+.m{color:#5b6680;font-size:11px}.c{white-space:nowrap}.split,tr.split td{background:#fff3d6}.warn{background:#f4f6fa;border-left:4px solid #b4530a;padding:8px 12px;border-radius:4px;font-size:13px}ul{margin:2px 0 0 18px;padding:0}
+.kid{border:1px solid #d5dbe6;border-radius:8px;padding:12px 14px;margin:12px 0;break-inside:avoid}.kb{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}.kb>div{flex:1 1 280px}table.k{width:100%;margin-top:8px}table.k td,table.k th{padding:4px 14px 4px 0}.line{margin-top:8px}.notes{margin-top:8px}.nh{font-size:12px;color:#44506a;font-weight:700;text-transform:none}.w{margin-top:6px}.st{color:#44506a}
+.brandbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid ${p}}.brandbar img{height:48px;width:48px;object-fit:contain}.brandbar .n{font-weight:800;font-size:18px;color:${p}}.brandbar .t{color:#5b6680;font-size:13px}.foot{margin-top:18px;color:#5b6680;font-size:12px}
+@page{size:${ran.length > 5 ? 'landscape' : 'portrait'};margin:10mm}@media print{body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}thead{display:table-header-group}.split,tr.split td,.warn{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
 ${b ? brandHeader(opts.brand) : ''}<h1>${esc(t.name)}</h1>
 <div class="m">${esc(opts.sessionLabel)} · as of ${esc(opts.asOf)} · scored by ${esc(opts.coaches.join(', ') || 'no one yet')}</div>
-<p class="warn"><strong>For coaches only.</strong> Do not share with families or players. <strong>${SCALE_RULE}</strong> Each number is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means nobody scored it, and it is left out of the overall.</p>
-<table><thead>${head}</thead><tbody>${body}</tbody></table>
-${notes ? `<h2>Notes</h2>${notes}` : ''}
+<p class="warn"><strong>For coaches only.</strong> Do not share with families or players. <strong>${SCALE_RULE}</strong> Each number in the summary is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means that coach did not score it.</p>
+${shown.length ? `<h2>Summary</h2><table><thead>${head}</thead><tbody>${body}</tbody></table><h2>Kid by kid</h2>${kids}` : '<p>No marks yet.</p>'}
+${left ? `<p class="m" style="margin-top:14px">${left}</p>` : ''}
 ${b ? `<div class="foot">${brandFooter(opts.brand)}</div>` : ''}
 </body></html>`;
 }

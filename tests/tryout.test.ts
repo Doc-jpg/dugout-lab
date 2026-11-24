@@ -105,7 +105,7 @@ describe('the board', () => {
     const html = renderBoardHtml(tryout(), rows, { sessionLabel: 'Both nights', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23' });
     expect(html).toContain('For coaches only');
     expect(html).not.toContain('brandbar">');
-    expect(html).toContain('size:landscape');
+    expect(html).toContain('@page{size:portrait');
     const team = { id: 't', name: 'Storm 12U', ageGroup: '12U', createdAt: '', updatedAt: '', brand: { programName: 'Storm Baseball', primary: '#7A1F2B' } } as any;
     const branded = renderBoardHtml(tryout(), rows, { sessionLabel: 'Both nights', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23', brand: { team } });
     expect(branded).toContain('<div class="brandbar">');
@@ -113,11 +113,44 @@ describe('the board', () => {
     expect(branded).toContain('For coaches only');
     expect(html).toContain('#12 Alex');
     expect(html).toContain('class="split">3.5');
-    expect(html).toContain('Aaron 2.0<br>Deren 5.0');
+    expect(html).toContain('<th>Aaron</th><th>Deren</th><th>Average</th>');
+    expect(html).toContain('<tr class="split"><td>Ground balls</td><td>2.0</td><td>5.0</td><td><strong>3.5</strong></td></tr>');
+    expect(html).toContain('<strong>Take him?</strong> Yes: Deren');
+    expect(html).toContain('Decision:</strong> Waitlist. see night 2');
     expect(html).toContain('1 / 0 / 0');
     expect(html).toContain('Waitlist');
     expect(html).toContain('slow &lt;feet&gt;');
     expect(html).not.toContain('Retired');
+  });
+  it('the report shows only the kids who were marked and the stations that were run, and says what it left out', () => {
+    const kids = [kid('a', 'Alex', { number: '1' }), kid('b', 'Ben', { number: '2' }), kid('c', 'Cy', { number: '3' }), kid('d', 'Dov', { number: '4' })];
+    const scores = [mark('a', 'gb', 'Deren', 4), mark('a', 'gb', 'Aaron', 3), mark('b', 'gb', 'Aaron', 2), mark('c', NOTE_STATION, 'Aaron', undefined, { note: 'Late, only saw him throw' })];
+    const html = renderBoardHtml(tryout(), buildBoard(tryout(), kids, scores, { sessionId: 's1' }), { sessionLabel: 'Night 1', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23', sessionId: 's1' });
+    expect(html).toContain('#1 Alex');
+    expect(html).toContain('#2 Ben');
+    expect(html).toContain('#3 Cy'); // a note alone means he was there
+    expect(html).not.toContain('Dov');
+    expect(html).toContain('<th>Ground balls</th>');
+    expect(html).not.toContain('<th>Hitting</th>');
+    expect(html).not.toContain('<th>Pitching</th>');
+    expect(html).toContain('Stations nobody scored, left out: Hitting, Pitching.');
+    expect(html).toContain('1 kid on the list had no marks and is left out.');
+    expect(html).toContain('1 of 1 stations');
+  });
+  it('every note sits under its kid, grouped by the coach who wrote it, with the station it was about', () => {
+    const kids = [kid('a', 'Alex'), kid('b', 'Ben')];
+    const scores = [
+      mark('a', 'gb', 'Deren', 4, { note: 'Soft hands' }), mark('a', 'hit', 'Aaron', 3, { note: 'Sits back on everything' }), mark('a', NOTE_STATION, 'Aaron', undefined, { note: 'Great kid, hustles' }),
+      mark('b', 'gb', 'Matt', 2, { note: 'Fields off to the side' })
+    ];
+    const html = renderBoardHtml(tryout(), buildBoard(tryout(), kids, scores, { sessionId: 's1' }), { sessionLabel: 'Night 1', coaches: ['Aaron', 'Deren', 'Matt'], asOf: 'Nov 23', sessionId: 's1' });
+    const alex = html.slice(html.indexOf('<section class="kid"><h3>Alex'), html.indexOf('<section class="kid"><h3>Ben'));
+    const ben = html.slice(html.indexOf('<section class="kid"><h3>Ben'));
+    expect(alex).toContain('<strong>Aaron</strong><ul><li><span class="st">Hitting:</span> Sits back on everything</li><li>Great kid, hustles</li></ul>');
+    expect(alex).toContain('<strong>Deren</strong><ul><li><span class="st">Ground balls:</span> Soft hands</li></ul>');
+    expect(alex).not.toContain('Fields off to the side');
+    expect(ben).toContain('<strong>Matt</strong><ul><li><span class="st">Ground balls:</span> Fields off to the side</li></ul>');
+    expect(ben).not.toContain('Soft hands');
   });
 });
 
@@ -144,9 +177,10 @@ describe('helpers', () => {
     expect(wearingOn(c, tryout())).toBe('bright green shirt');
     expect(wearingOn(kid('b', 'Ben', { wearing: { s1: 'red hat', s2: 'gray hoodie' } }), tryout())).toBe('gray hoodie');
     expect(wearingOn(kid('c', 'Cy'), tryout())).toBeUndefined();
-    const html = renderBoardHtml(tryout(), buildBoard(tryout(), [c], []), { sessionLabel: 'Night 1', coaches: [], asOf: 'Nov 23', sessionId: 's1' });
+    const marks = [mark('a', 'gb', 'Deren', 4), mark('a', 'gb', 'Deren', 4, { sessionId: 's2' })];
+    const html = renderBoardHtml(tryout(), buildBoard(tryout(), [c], marks, { sessionId: 's1' }), { sessionLabel: 'Night 1', coaches: [], asOf: 'Nov 23', sessionId: 's1' });
     expect(html).toContain('Wearing: bright green shirt');
-    expect(renderBoardHtml(tryout(), buildBoard(tryout(), [c], []), { sessionLabel: 'Night 2', coaches: [], asOf: 'Nov 30', sessionId: 's2' })).not.toContain('Wearing');
+    expect(renderBoardHtml(tryout(), buildBoard(tryout(), [c], marks, { sessionId: 's2' }), { sessionLabel: 'Night 2', coaches: [], asOf: 'Nov 30', sessionId: 's2' })).not.toContain('Wearing');
   });
   it('the starting stations cover the plan and can be hidden', () => {
     expect(DEFAULT_STATIONS).toEqual(['Catch play', 'Ground balls', 'Fly balls', 'Pitching', 'Catching', 'Hitting', 'Speed and athleticism', 'Coachability and effort']);
