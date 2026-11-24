@@ -353,7 +353,7 @@ export async function commitRosterImport(plan: RosterImportPlan, labTeamId: stri
 }
 
 /** Share on a phone (Files, AirDrop, Mail) or download on a computer. */
-export async function shareOrDownload(bytes: Uint8Array, fileName: string, mime = 'application/zip'): Promise<'shared' | 'downloaded' | 'cancelled'> {
+export async function shareOrDownload(bytes: Uint8Array, fileName: string, mime = 'application/zip', text?: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   const blob = new Blob([copy], { type: mime });
@@ -362,7 +362,8 @@ export async function shareOrDownload(bytes: Uint8Array, fileName: string, mime 
     if (nav?.canShare && nav?.share) {
       const file = new File([blob], fileName, { type: mime });
       if (nav.canShare({ files: [file] })) {
-        await nav.share({ files: [file], title: fileName });
+        // With `text`, Messages and Mail open with those words already typed next to the file.
+        await nav.share(text ? { files: [file], text } : { files: [file], title: fileName });
         return 'shared';
       }
     }

@@ -6,6 +6,7 @@ import { NewPracticePage } from './pages/NewPracticePage';
 import { PracticePlanPage } from './pages/PracticePlanPage';
 import { LivePracticePage } from './pages/LivePracticePage';
 import { RecapPage } from './pages/RecapPage';
+import { PracticeReportsPage } from './pages/PracticeReportsPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { DrillsPage } from './pages/DrillsPage';
@@ -77,6 +78,7 @@ export function App() {
           <Route path="/practices/:practiceId" element={<PracticePlanPage />} />
           <Route path="/practices/:practiceId/live" element={<LivePracticePage />} />
           <Route path="/practices/:practiceId/recap" element={<RecapPage />} />
+          <Route path="/practices/:practiceId/reports" element={<PracticeReportsPage />} />
           <Route path="/players" element={<PlayersPage />} />
           <Route path="/players/:playerId" element={<PlayerPage />} />
           <Route path="/drills" element={<DrillsPage />} />

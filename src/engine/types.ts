@@ -521,7 +521,9 @@ export interface ParentUpdate {
   id: ID;
   playerId: ID;
   ts: ISODateTime;
-  kind: 'update' | 'home_plan' | 'scorecard' | 'progress';
+  kind: 'update' | 'home_plan' | 'scorecard' | 'progress' | 'practice_report';
+  /** For a practice report: the practice it was about, so the send screen knows who is done. */
+  practiceId?: ID;
   channel: 'text' | 'email' | 'file' | 'copy';
   /** The text as drafted (what the coach saw before sending). */
   text: string;

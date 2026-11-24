@@ -154,6 +154,7 @@ export function TodayPage() {
               <div className="muted small">Last practice, {fmtDate(lastDone.date)}</div>
               {lastDone.recap?.summary && <div className="small">{lastDone.recap.summary}</div>}
               {lastDone.recap?.followUps.length ? <div className="small" style={{ marginTop: 4 }}><strong>Follow up:</strong> {lastDone.recap.followUps.slice(0, 3).join(' · ')}</div> : null}
+              <button className="btn sm" style={{ marginTop: 8 }} onClick={() => nav(`/practices/${lastDone.id}/reports`)}>Practice reports for families</button>
             </div>
           )}
 

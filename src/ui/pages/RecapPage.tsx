@@ -108,7 +108,8 @@ export function RecapPage() {
       </div>
 
       {practice.status !== 'done' && <button className="btn primary big-btn block" style={{ marginTop: 16 }} onClick={finish}>Finish practice</button>}
-      {practice.status === 'done' && <button className="btn block" style={{ marginTop: 16 }} onClick={() => nav('/parents')}>Draft parent updates</button>}
+      {practice.status === 'done' && <button className="btn primary big-btn block" style={{ marginTop: 16 }} onClick={() => nav(`/practices/${practice.id}/reports`)}>Practice reports for families</button>}
+      {practice.status === 'done' && <button className="btn block" style={{ marginTop: 8 }} onClick={() => nav('/parents')}>Longer parent updates</button>}
       {toast.el}
     </div>
   );

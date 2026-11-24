@@ -33,6 +33,10 @@ Separate installable PWA, roster, private profiles and notes, original drill lib
 ## Tryouts (v0.9.0, 2026-11-23)
 - Next, from the first real nights: a tryout-only guest link (score without seeing the roster), timed and measured stations (60-yard run, radar), optional weights for the overall, tryout data in the backup file, turning an offered kid into a roster player in one tap (name and positions only).
 
+## Practice reports for families (v0.10.0, 2026-11-24)
+Done: one-page PDF per kid per practice, the send screen, line-by-line control of what goes home.
+Open, waiting on Deren: how the right family gets filled in (pick in the share sheet as now, a private link in a pre-addressed text, or a mail service that sends). Then: paste a family contact list instead of typing each one; a parent-friendly way to tap a written note at the field so reports are not thin; the same letterhead and PDF for the scorecard, home plan and progress page; send the whole roster's PDFs as one batch to Files.
+
 ## Housekeeping
 - Done 2026-11-16: compared with the Hero Digitals coaching product from Deren's screenshots; took the one real gap, drill diagrams (28 of 110 so far, v0.7.0). Next: the rest of the library where a picture helps, diagrams on the printed plan, a coach drawing his own.
 - Consider shifting a few warm-up drills from blocked to variable to balance the library's style mix.

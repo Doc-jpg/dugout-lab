@@ -397,3 +397,6 @@ table.tboard td.split { background: var(--warn-bg); color: #3d2a00; font-weight:
 table.tboard th, table.tboard td { text-align: center; padding: 8px 7px; }
 .wear { display: inline-block; margin-top: 4px; padding: 3px 10px; border: 0; border-radius: 999px; background: var(--warn-bg); color: #3d2a00; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; }
 .wear.empty { background: transparent; color: var(--ink-3); font-weight: 400; padding-left: 0; text-decoration: underline dotted; }
+
+/* A link that is really a button, inside a sentence. */
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
