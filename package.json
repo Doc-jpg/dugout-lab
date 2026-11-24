@@ -1,7 +1,7 @@
 {
   "name": "dugout-lab",
   "private": true,
-  "version": "0.9.4",
+  "version": "0.9.5",
   "type": "module",
   "description": "Dugout Lab: personalized youth baseball practice planning and player development, offline-first",
   "scripts": {
@@ -18,6 +18,8 @@
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",
     "fflate": "^0.8.2",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.18.5"

@@ -15,7 +15,8 @@
  */
 import type { Candidate, Tryout, TryoutScore, TryoutStation, ISODate } from './types';
 import { LEAN_STATION, NOTE_STATION } from './types';
-import { brandOf, brandHeader, brandFooter, type BrandContext } from './home';
+import { brandOf, type BrandContext } from './home';
+import { tint, inkFor, contrastRatio, hexToRgb, rgbToHex } from './brand';
 
 /** Matt's plan for the Warriors tryout nights, plus the two things a drill does not show by itself. */
 export const DEFAULT_STATIONS = ['Catch play', 'Ground balls', 'Fly balls', 'Pitching', 'Catching', 'Hitting', 'Speed and athleticism', 'Coachability and effort'];
@@ -219,31 +220,72 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const stationName = (t: Tryout, id: string) => (id === LEAN_STATION ? 'Lean' : id === NOTE_STATION ? 'Overall' : t.stations.find((s) => s.id === id)?.label ?? 'Station');
 const sessionName = (t: Tryout, id: string) => t.sessions.find((s) => s.id === id)?.label ?? '';
 
+export interface BoardReportOpts { sessionLabel: string; coaches: string[]; asOf: string; sessionId?: string; brand?: BrandContext }
+
+/**
+ * What goes in the report: only kids somebody marked, leaned on or wrote about, and only stations
+ * somebody scored. The page and the PDF both use this, so they can never disagree.
+ */
+export function reportScope(t: Tryout, rows: BoardRow[]) {
+  const allStations = visibleStations(t);
+  const shown = rows.filter((r) => r.stationsScored > 0 || r.notes.length > 0 || r.leans.yes.length + r.leans.maybe.length + r.leans.no.length > 0);
+  const ran = allStations.map((st, i) => ({ st, i })).filter(({ i }) => shown.some((r) => r.cells[i]?.avg !== undefined));
+  const skipped = allStations.filter((st) => !ran.some((x) => x.st.id === st.id));
+  const absent = rows.length - shown.length;
+  const left = [skipped.length ? `Stations nobody scored, left out: ${skipped.map((x) => x.label).join(', ')}.` : '', absent ? `${absent} ${absent === 1 ? 'kid' : 'kids'} on the list had no marks and ${absent === 1 ? 'is' : 'are'} left out.` : ''].filter(Boolean).join(' ');
+  const anyLean = shown.some((r) => r.leans.yes.length + r.leans.maybe.length + r.leans.no.length > 0);
+  const anyDecision = shown.some((r) => r.candidate.decision);
+  const noteNights = new Set(shown.flatMap((r) => r.notes.map((n) => n.sessionId))).size;
+  // Upright fits eight columns of marks; more than that prints sideways.
+  const sideways = ran.length + (anyLean ? 1 : 0) + (anyDecision ? 1 : 0) > 8;
+  return { shown, ran, skipped, absent, left, anyLean, anyDecision, noteNights, sideways };
+}
+
+/** A color darkened until words in it can be read on white. A light gold becomes a deep gold; a navy is left alone. */
+function readableOnWhite(hex: string): string {
+  let rgb = hexToRgb(hex);
+  if (!rgb) return '#44506a';
+  let out = hex;
+  for (let i = 0; i < 16 && contrastRatio(out, '#ffffff') < 4; i++) {
+    rgb = rgb.map((v) => v * 0.88) as [number, number, number];
+    out = rgbToHex(rgb[0], rgb[1], rgb[2]);
+  }
+  return out;
+}
+
+/** The colors the report is drawn in: the team's when there is a team, quiet ink when there is not. */
+export function reportColors(brand?: BrandContext) {
+  const b = brand?.team ? brandOf(brand) : undefined;
+  const primary = b?.primary ?? '#16202e';
+  const accent = b?.accent ?? '#5b6680';
+  // onAccent: text that can be read on the accent color. accentText: the accent, darkened if needed, for words on white.
+  return { b, primary, accent, soft: tint(accent, 0.9), softer: tint(accent, 0.95), onAccent: inkFor(accent), accentText: readableOnWhite(accent) };
+}
+export const reportStationName = (t: Tryout, id: string) => stationName(t, id);
+export const reportSessionName = (t: Tryout, id: string) => sessionName(t, id);
+
 /**
  * The printable tryout report for the coaches' talk afterward. Coach-only, and it says so on the page.
  * It shows only what happened: kids nobody marked and stations nobody scored are left out and named
  * at the bottom. A summary table first, then each kid with every coach's marks side by side and
- * every coach's notes under his own name. With a team it carries the team's header. It prints sideways
- * only when more than five stations were run.
+ * every coach's notes under his own name.
+ *
+ * It is dressed as the program's own document: a color bar and the wordmark (or the logo and name)
+ * across the top, a band in the team color, table heads and each kid's name bar in the team color.
+ * It prints sideways only when the summary has more columns than an upright page holds.
  */
-export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: { sessionLabel: string; coaches: string[]; asOf: string; sessionId?: string; brand?: BrandContext }): string {
-  const b = opts.brand?.team ? brandOf(opts.brand) : undefined;
-  const allStations = visibleStations(t);
-  const seen = (r: BoardRow) => r.stationsScored > 0 || r.notes.length > 0 || r.leans.yes.length + r.leans.maybe.length + r.leans.no.length > 0;
-  const shown = rows.filter(seen);
-  const absent = rows.length - shown.length;
-  // A station is in the report when at least one kid in it has a mark there.
-  const ran = allStations.map((st, i) => ({ st, i })).filter(({ i }) => shown.some((r) => r.cells[i]?.avg !== undefined));
-  const skipped = allStations.filter((st) => !ran.some((x) => x.st.id === st.id));
+export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: BoardReportOpts): string {
+  const { b, primary: p, accent: a, soft, softer, onAccent, accentText } = reportColors(opts.brand);
+  const { shown, ran, left: leftRaw, anyLean, anyDecision, noteNights, sideways } = reportScope(t, rows);
   const kidName = (c: Candidate) => `${c.number ? `#${esc(c.number)} ` : ''}${esc(c.name)}`;
   const leanWords = (r: BoardRow) => [r.leans.yes.length ? `Yes: ${r.leans.yes.map(esc).join(', ')}` : '', r.leans.maybe.length ? `Maybe: ${r.leans.maybe.map(esc).join(', ')}` : '', r.leans.no.length ? `No: ${r.leans.no.map(esc).join(', ')}` : ''].filter(Boolean).join(' · ');
 
-  const head = `<tr><th>Kid</th><th>Overall</th>${ran.map(({ st }) => `<th>${esc(st.label)}</th>`).join('')}<th>Yes / Maybe / No</th><th>Decision</th></tr>`;
+  const head = `<tr><th>Kid</th><th>Overall</th>${ran.map(({ st }) => `<th>${esc(st.label)}</th>`).join('')}${anyLean ? '<th>Yes / Maybe / No</th>' : ''}${anyDecision ? '<th>Decision</th>' : ''}</tr>`;
   const body = shown.map((r) => {
     const c = r.candidate;
     const cells = ran.map(({ i }) => r.cells[i]).map((x) => `<td class="${x.split ? 'split' : ''}">${fmt(x.avg)}</td>`).join('');
     const scoredHere = ran.filter(({ i }) => r.cells[i].avg !== undefined).length;
-    return `<tr><td><strong>${kidName(c)}</strong></td><td><strong>${fmt(r.overall)}</strong><div class="m">${scoredHere} of ${ran.length} stations</div></td>${cells}<td class="c">${r.leans.yes.length} / ${r.leans.maybe.length} / ${r.leans.no.length}</td><td>${c.decision ? esc(DECISION_LABEL[c.decision]) : ''}</td></tr>`;
+    return `<tr><td><strong>${kidName(c)}</strong></td><td class="ov"><strong>${fmt(r.overall)}</strong><div class="m">${scoredHere} of ${ran.length} stations</div></td>${cells}${anyLean ? `<td class="c">${r.leans.yes.length} / ${r.leans.maybe.length} / ${r.leans.no.length}</td>` : ''}${anyDecision ? `<td>${c.decision ? esc(DECISION_LABEL[c.decision]) : ''}</td>` : ''}</tr>`;
   }).join('');
 
   const kids = shown.map((r) => {
@@ -253,29 +295,49 @@ export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: { sessionLabe
     const marks = scorers.length ? `<table class="k"><thead><tr><th>Station</th>${scorers.map((by) => `<th>${esc(by)}</th>`).join('')}<th>Average</th></tr></thead><tbody>${ran.filter(({ i }) => r.cells[i].avg !== undefined).map(({ st, i }) => {
       const cell = r.cells[i];
       return `<tr class="${cell.split ? 'split' : ''}"><td>${esc(st.label)}</td>${scorers.map((by) => { const v = cell.byCoach.find((x) => x.by === by); return `<td>${v ? fmt(v.value) : '–'}</td>`; }).join('')}<td><strong>${fmt(cell.avg)}</strong></td></tr>`;
-    }).join('')}<tr><td><strong>Overall</strong></td>${scorers.map(() => '<td></td>').join('')}<td><strong>${fmt(r.overall)}</strong></td></tr></tbody></table>` : '<div class="m">No station marks.</div>';
+    }).join('')}<tr class="tot"><td><strong>Overall</strong></td>${scorers.map(() => '<td></td>').join('')}<td><strong>${fmt(r.overall)}</strong></td></tr></tbody></table>` : '<div class="m">No station marks.</div>';
     const lean = leanWords(r);
     const decision = c.decision ? `<div class="line"><strong>Decision:</strong> ${esc(DECISION_LABEL[c.decision])}${c.decisionNote ? `. ${esc(c.decisionNote)}` : ''}</div>` : '';
     // Every note, grouped under the coach who wrote it.
     const writers = [...new Set(r.notes.map((n) => n.by))].sort((x, y) => x.localeCompare(y));
-    const notes = writers.length ? `<div class="notes"><div class="nh">What the coaches wrote</div>${writers.map((by) => `<div class="w"><strong>${esc(by)}</strong><ul>${r.notes.filter((n) => n.by === by).map((n) => `<li>${n.stationId === NOTE_STATION ? '' : `<span class="st">${esc(stationName(t, n.stationId))}:</span> `}${esc(n.text)}${!opts.sessionId && t.sessions.length > 1 && sessionName(t, n.sessionId) ? ` <span class="m">(${esc(sessionName(t, n.sessionId))})</span>` : ''}</li>`).join('')}</ul></div>`).join('')}</div>` : '<div class="m" style="margin-top:6px">No written notes.</div>';
-    return `<section class="kid"><h3>${kidName(c)}</h3><div class="m">${esc([c.positions, c.team, c.note].filter(Boolean).join(' · '))}${wearing ? `${c.positions || c.team || c.note ? ' · ' : ''}Wearing: ${esc(wearing)}` : ''}</div><div class="kb"><div>${marks}${lean ? `<div class="line"><strong>Take him?</strong> ${lean}</div>` : ''}${decision}</div><div>${notes}</div></div></section>`;
+    const notes = writers.length ? `<div class="notes"><div class="nh">What the coaches wrote</div>${writers.map((by) => `<div class="w"><strong>${esc(by)}</strong><ul>${r.notes.filter((n) => n.by === by).map((n) => `<li>${n.stationId === NOTE_STATION ? '' : `<span class="st">${esc(stationName(t, n.stationId))}:</span> `}${esc(n.text)}${!opts.sessionId && noteNights > 1 && sessionName(t, n.sessionId) ? ` <span class="m">(${esc(sessionName(t, n.sessionId))})</span>` : ''}</li>`).join('')}</ul></div>`).join('')}</div>` : '<div class="notes"><div class="nh">What the coaches wrote</div><div class="m">No written notes.</div></div>';
+    const meta = [c.positions, c.team, c.note].filter(Boolean).join(' · ');
+    return `<section class="kid"><div class="kh"><div><h3>${kidName(c)}</h3>${meta ? `<div class="km">${esc(meta)}</div>` : ''}</div><div class="ko"><span>Overall</span><b>${fmt(r.overall)}</b></div></div>${wearing ? `<div class="kw">Wearing: ${esc(wearing)}</div>` : ''}<div class="kb"><div>${marks}${lean ? `<div class="line"><strong>Take him?</strong> ${lean}</div>` : ''}${decision}</div><div>${notes}</div></div></section>`;
   }).join('');
 
-  const left = [skipped.length ? `Stations nobody scored, left out: ${skipped.map((x) => esc(x.label)).join(', ')}.` : '', absent ? `${absent} ${absent === 1 ? 'kid' : 'kids'} on the list had no marks and ${absent === 1 ? 'is' : 'are'} left out.` : ''].filter(Boolean).join(' ');
-  const p = b?.primary ?? '#16202e';
+  const left = esc(leftRaw);
+  const mark = b?.wordmark ? `<img class="wm" src="${b.wordmark.src}" alt="${esc(b.name)}">` : b ? `<div class="lm">${b.logo ? `<img src="${b.logo}" alt="">` : ''}<div class="ln">${esc(b.name)}</div></div>` : '';
+  const count = `${shown.length} ${shown.length === 1 ? 'kid' : 'kids'} · ${ran.length} ${ran.length === 1 ? 'station' : 'stations'}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(t.name)} report</title><style>
-body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#16202e;margin:20px}h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:22px 0 6px;border-bottom:2px solid ${p};padding-bottom:3px}h3{font-size:16px;margin:0 0 2px;color:${p}}
-table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #d5dbe6;padding:6px 8px;text-align:left;vertical-align:top}th{font-size:12px;color:#44506a}
-.m{color:#5b6680;font-size:11px}.c{white-space:nowrap}.split,tr.split td{background:#fff3d6}.warn{background:#f4f6fa;border-left:4px solid #b4530a;padding:8px 12px;border-radius:4px;font-size:13px}ul{margin:2px 0 0 18px;padding:0}
-.kid{border:1px solid #d5dbe6;border-radius:8px;padding:12px 14px;margin:12px 0;break-inside:avoid}.kb{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}.kb>div{flex:1 1 280px}table.k{width:100%;margin-top:8px}table.k td,table.k th{padding:4px 14px 4px 0}.line{margin-top:8px}.notes{margin-top:8px}.nh{font-size:12px;color:#44506a;font-weight:700;text-transform:none}.w{margin-top:6px}.st{color:#44506a}
-.brandbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid ${p}}.brandbar img{height:48px;width:48px;object-fit:contain}.brandbar .n{font-weight:800;font-size:18px;color:${p}}.brandbar .t{color:#5b6680;font-size:13px}.foot{margin-top:18px;color:#5b6680;font-size:12px}
-@page{size:${ran.length > 5 ? 'landscape' : 'portrait'};margin:10mm}@media print{body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}thead{display:table-header-group}.split,tr.split td,.warn{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
-${b ? brandHeader(opts.brand) : ''}<h1>${esc(t.name)}</h1>
-<div class="m">${esc(opts.sessionLabel)} · as of ${esc(opts.asOf)} · scored by ${esc(opts.coaches.join(', ') || 'no one yet')}</div>
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#16202e;margin:0;background:#fff}
+.top{height:12px;background:${p};border-bottom:4px solid ${a}}.page{padding:18px 20px 22px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}.wm{height:74px;width:auto;max-width:62%}
+.lm{display:flex;align-items:center;gap:12px}.lm img{height:64px;width:64px;object-fit:contain}.lm{max-width:62%}.ln{font-size:24px;font-weight:900;color:${p};text-transform:uppercase;letter-spacing:.5px;line-height:1.05}
+.ttl{text-align:right;margin-left:auto}.ttl .k{font-size:22px;font-weight:900;letter-spacing:2.5px;text-transform:uppercase;color:${p};line-height:1.1}.ttl .n{font-size:14px;font-weight:700;color:${accentText};margin-top:3px}.ttl .d{font-size:12px;color:#5b6680}
+.band{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:${p};color:#fff;margin:14px -20px 0;padding:9px 20px;font-size:13px;font-weight:600;letter-spacing:.4px}
+.pill{background:${a};color:${onAccent};border-radius:999px;padding:3px 12px;font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;white-space:nowrap}
+.by{margin:12px 0 0;font-size:13px}.by b{color:${p}}
+h1{font-size:22px;margin:0 0 2px}h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:${p};margin:24px 0 8px;padding-bottom:5px;border-bottom:3px solid ${a}}h3{font-size:17px;margin:0;color:#fff;font-weight:800}
+table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #d5dbe6;padding:7px 9px;text-align:left;vertical-align:top}
+table.sum th{background:${p};color:#fff;font-size:11.5px;letter-spacing:.3px;border-bottom:0}table.sum tbody tr:nth-child(even) td{background:${softer}}table.sum td.ov strong{color:${p};font-size:16px}
+.m{color:#5b6680;font-size:11px}.c{white-space:nowrap}table.sum tbody tr td.split,.split,tr.split td{background:#fff3d6}.warn{background:${softer};border-left:5px solid ${a};padding:9px 13px;border-radius:4px;font-size:12.5px;margin:12px 0 0}ul{margin:2px 0 0 18px;padding:0}
+.kid{border:1px solid #cdd6e3;border-radius:10px;margin:14px 0;break-inside:avoid;overflow:hidden}
+.kh{display:flex;justify-content:space-between;align-items:center;gap:12px;background:${p};color:#fff;padding:10px 14px;border-bottom:4px solid ${a}}.km{font-size:12px;color:#fff;opacity:.85;margin-top:1px}
+.ko{background:${a};color:${onAccent};border-radius:8px;padding:4px 12px;text-align:center;line-height:1.1}.ko span{display:block;font-size:9px;letter-spacing:1.4px;text-transform:uppercase;font-weight:700;opacity:.9}.ko b{font-size:20px}
+.kw{background:${soft};padding:6px 14px;font-size:12px;color:#2b3852}
+.kb{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;padding:10px 14px 14px}.kb>div{flex:1 1 280px}
+table.k th{font-size:11px;color:${p};text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid ${a};padding:5px 12px 5px 0}table.k td{padding:5px 12px 5px 0}table.k tr.tot td{border-bottom:0;color:${p}}tr.split td:first-child{padding-left:6px}
+.line{margin-top:8px}.nh{font-size:11px;color:${p};font-weight:800;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid ${a};padding:5px 0}.w{margin-top:8px;border-left:3px solid ${a};padding-left:10px}.w strong{color:${p}}.st{color:${accentText};font-weight:600}
+.foot{margin-top:20px;padding-top:10px;border-top:3px solid ${p};display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#5b6680;font-size:11.5px}.foot b{color:${p}}
+@page{size:${sideways ? 'landscape' : 'portrait'};margin:8mm}@media print{h2{break-after:avoid}tr{break-inside:avoid}thead{display:table-header-group}}</style></head><body>
+<div class="top"></div><div class="page">
+<div class="hd">${mark}<div class="ttl"><div class="k">Tryout report</div><div class="n">${esc(t.name)}</div><div class="d">${esc(opts.sessionLabel)} · as of ${esc(opts.asOf)}</div></div></div>
+<div class="band"><span>${esc(b?.tagline || b?.name || 'Tryout report')}</span><span class="pill">Coaches only</span></div>
+<p class="by">Scored by <b>${esc(opts.coaches.join(', ') || 'no one yet')}</b> · ${count}</p>
 <p class="warn"><strong>For coaches only.</strong> Do not share with families or players. <strong>${SCALE_RULE}</strong> Each number in the summary is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means that coach did not score it.</p>
-${shown.length ? `<h2>Summary</h2><table><thead>${head}</thead><tbody>${body}</tbody></table><h2>Kid by kid</h2>${kids}` : '<p>No marks yet.</p>'}
+${shown.length ? `<h2>Summary</h2><table class="sum"><thead>${head}</thead><tbody>${body}</tbody></table><h2>Kid by kid</h2>${kids}` : '<p>No marks yet.</p>'}
 ${left ? `<p class="m" style="margin-top:14px">${left}</p>` : ''}
-${b ? `<div class="foot">${brandFooter(opts.brand)}</div>` : ''}
-</body></html>`;
+<div class="foot"><span>${b ? `<b>${esc(b.footer || b.name)}</b>` : ''}</span><span>For coaches only · ${esc(opts.asOf)}</span></div>
+</div></body></html>`;
 }

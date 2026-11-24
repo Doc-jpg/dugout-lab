@@ -133,12 +133,20 @@ fs.mkdirSync(shotsDir, { recursive: true });
   expect('the decision shows on the board', /Offer/.test((await cellsOf('Alex Rivers'))[0]), true);
   await page.selectOption('#board-sort', { label: 'Name' }); await settle(150);
   expect('order by name', await page.locator('table.tboard tbody tr').first().getAttribute('data-board-kid'), 'Alex Rivers');
-  await page.getByRole('button', { name: 'Print or share the board' }).click(); await page.waitForSelector('.sheet iframe');
+  await page.getByRole('button', { name: 'Share the report (PDF)' }).click(); await page.waitForSelector('.sheet iframe');
   const doc = await page.frameLocator('.sheet iframe').locator('body').innerText();
-  expect('printed board says coaches only and carries the notes', /For coaches only\./.test(doc) && /5 is best\. 1 is lowest\./.test(doc) && /Sits back on everything/.test(doc) && /Ground balls\s+2\.0\s+5\.0\s+3\.5/.test(doc) && /Wearing: bright green shirt/.test(doc), true);
+  expect('printed board says coaches only and carries the notes', /For coaches only\./.test(doc) && /5 is best\. 1 is lowest\./.test(doc) && /Sits back on everything/.test(doc) && /Ground balls\s+2\.0\s+5\.0\s+3\.5/.test(doc) && /Wearing: bright green shirt/.test(doc) && /Tryout report/i.test(doc) && /Coaches only/i.test(doc), true);
   expect('the report leaves out the kid nobody marked and the stations nobody ran, and says so', [/Eli Stone/.test(doc), /Fly balls\t/.test(doc), /Stations nobody scored, left out: .*Fly balls/.test(doc), /kids? on the list had no marks/.test(doc)], [false, false, true, true]);
-  expect('each note sits under its kid and its coach', /Ben Cole[\s\S]*What the coaches wrote\s+Deren\s+Ground balls: Sits back on everything[\s\S]*Cy Dunn/.test(doc), true);
-  expect('printed board carries the team header and prints sideways', [await page.frameLocator('.sheet iframe').locator('.brandbar .n').count(), /@page\{size:(landscape|portrait)/.test(await page.locator('.sheet iframe').getAttribute('srcdoc'))], [1, true]);
+  expect('each note sits under its kid and its coach', /Ben Cole[\s\S]*What the coaches wrote\s+Deren\s+Ground balls: Sits back on everything[\s\S]*Cy Dunn/i.test(doc), true);
+  expect('the report is dressed as the team: color bar, name or wordmark, band, and a page size', [await page.frameLocator('.sheet iframe').locator('.top').count(), await page.frameLocator('.sheet iframe').locator('.hd .wm, .hd .lm').count(), await page.frameLocator('.sheet iframe').locator('.band .pill').count(), /@page\{size:(landscape|portrait)/.test(await page.locator('.sheet iframe').getAttribute('srcdoc'))], [1, 1, 1, true]);
+  // The PDF: made as the sheet opens, handed over on the tap. A browser with no share sheet downloads it.
+  await page.waitForSelector('[data-share-pdf]:not([disabled])', { timeout: 20000 });
+  expect('the main button shares a PDF', (await page.locator('[data-share-pdf]').innerText()).trim(), 'Share as PDF');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-share-pdf]').click()]);
+  const pdfPath = path.join(shotsDir, 'tryout-report.pdf');
+  await dl.saveAs(pdfPath);
+  const pdfBytes = fs.readFileSync(pdfPath);
+  expect('what comes out is a real PDF with a sensible name', [pdfBytes.slice(0, 5).toString(), pdfBytes.length > 5000, /\.pdf$/.test(dl.suggestedFilename()), /tryout/i.test(dl.suggestedFilename())], ['%PDF-', true, true, true]);
   fs.writeFileSync(path.join(shotsDir, 'tryout-board.html'), await page.locator('.sheet iframe').getAttribute('srcdoc'));
   await page.locator('.sheet-head >> role=button[name="Close"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
 

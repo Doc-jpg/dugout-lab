@@ -294,6 +294,13 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
   const coaches = coachCounts(tryout, scores, sessionId || undefined);
   const sessionLabel = sessionId ? tryout.sessions.find((s) => s.id === sessionId)?.label ?? '' : tryout.sessions.length > 1 ? 'All nights together' : tryout.sessions[0]?.label ?? '';
   const openRow = rows.find((r) => r.candidate.id === open);
+  // The report. With "All nights" picked while only one night has any marks, it is that night's
+  // report: say the night, use that night's clothes, and do not tag every note with the date.
+  const nightsMarked = useMemo(() => [...new Set(scores.filter((s) => s.tryoutId === tryout.id).map((s) => s.sessionId))], [scores, tryout.id]);
+  const reportNight = sessionId || (nightsMarked.length === 1 ? nightsMarked[0] : '');
+  const reportLabel = reportNight ? tryout.sessions.find((s) => s.id === reportNight)?.label ?? sessionLabel : sessionLabel;
+  const reportOpts = { sessionLabel: reportLabel, coaches: coaches.map((c) => c.by), asOf: shortDate(localDate(new Date())), sessionId: reportNight || undefined, brand: { team, settings } };
+  const pdfName = `${`${tryout.name} ${reportLabel}`.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tryout-report'}.pdf`;
   return (
     <div>
       <div className="card tkey" data-scale-key><div className="big">Higher is better.</div><div className="small">{SCALE_RULE} Each number is the average of the coaches who scored it.</div></div>
@@ -333,11 +340,12 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
       <p className="muted small">Green is 4 or better, red is 2 or lower. A shaded box means two coaches were {SPLIT_AT} or more apart. A dash means nobody scored it, and it is left out of the overall. Tap a kid for each coach's marks and notes.</p>
       <div className="row wrap">
         {settings.sync?.enabled && <button className="btn primary" disabled={fetching === 'busy'} onClick={refresh}>{fetching === 'busy' ? 'Getting them…' : 'Get the latest marks'}</button>}
-        <button className="btn" onClick={() => setPrint(true)}>Print or share the board</button>
+        <button className="btn" onClick={() => setPrint(true)}>Share the report (PDF)</button>
       </div>
       {settings.sync?.enabled && <p className="muted small">{fetching === 'done' ? 'Up to date as of right now.' : fetching === 'failed' ? 'Could not reach the other phones just now (no signal?). Your own marks are safe on this phone and go out when the signal is back.' : 'Other coaches\' marks arrive by themselves every couple of minutes while this is open, or tap to get them now.'}</p>}
       {openRow && <KidBoardSheet tryout={tryout} row={openRow} onClose={() => setOpen(null)} />}
-      {print && <PrintSheet title={`${tryout.name} board`} html={renderBoardHtml(tryout, rows, { sessionLabel, coaches: coaches.map((c) => c.by), asOf: shortDate(localDate(new Date())), sessionId: sessionId || undefined, brand: { team, settings } })} fileName={`tryout-board.html`} onClose={() => setPrint(false)} />}
+      {print && <PrintSheet title={`${tryout.name} report`} html={renderBoardHtml(tryout, rows, reportOpts)} fileName={`tryout-report.html`} onClose={() => setPrint(false)}
+        pdf={{ fileName: pdfName, make: async () => { const m = await import('../../io/tryoutPdf'); return m.buildTryoutPdf(tryout, rows, reportOpts); } }} />}
     </div>
   );
 }

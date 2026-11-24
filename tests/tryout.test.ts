@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { DugoutLabDB, createTryout, addCandidate, updateCandidate, setScore, scoreId, deleteTryout, updateTryout, getSettings, saveSettings } from '../src/db/db';
 import { wearingOn, parseCandidateList, buildBoard, sortBoard, currentSession, myProgress, coachCounts, renderBoardHtml, sortCandidates, fmt, DEFAULT_STATIONS, visibleStations } from '../src/engine/tryout';
 import { LEAN_STATION, NOTE_STATION, nowIso, type Candidate, type Tryout, type TryoutScore } from '../src/engine/types';
+import { buildTryoutPdf, pdfSafe, tryoutPdfName } from '../src/io/tryoutPdf';
+
+/** A PDF's bytes as text, one character per byte, so a test can look for words in it. */
+const latin1 = (b: Uint8Array) => { let out = ''; for (let i = 0; i < b.length; i += 8192) out += String.fromCharCode(...b.subarray(i, i + 8192)); return out; };
 
 let n = 0;
 const fresh = () => new DugoutLabDB('tryout-' + Date.now() + '-' + n++);
@@ -104,12 +108,19 @@ describe('the board', () => {
     const rows = buildBoard(tryout(), [kid('a', 'Alex', { number: '12', positions: 'SS', team: 'Storm', decision: 'waitlist', decisionNote: 'see night 2' })], scores);
     const html = renderBoardHtml(tryout(), rows, { sessionLabel: 'Both nights', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23' });
     expect(html).toContain('For coaches only');
-    expect(html).not.toContain('brandbar">');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('<span class="pill">Coaches only</span>');
     expect(html).toContain('@page{size:portrait');
     const team = { id: 't', name: 'Storm 12U', ageGroup: '12U', createdAt: '', updatedAt: '', brand: { programName: 'Storm Baseball', primary: '#7A1F2B' } } as any;
     const branded = renderBoardHtml(tryout(), rows, { sessionLabel: 'Both nights', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23', brand: { team } });
-    expect(branded).toContain('<div class="brandbar">');
-    expect(branded).toContain('Storm Baseball');
+    expect(branded).toContain('<div class="ln">Storm Baseball</div>');
+    expect(branded).toContain('background:#7a1f2b');
+    expect(branded).not.toContain('Stewards');
+    expect(branded).not.toContain('class="wm"');
+    const house = renderBoardHtml(tryout(), rows, { sessionLabel: 'Both nights', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23', brand: { team: { ...team, brand: undefined } } });
+    expect(house).toContain('<img class="wm" src="data:image/png;base64,');
+    expect(house).toContain('alt="Warriors Baseball"');
+    expect(house).toContain('Stewards Sports Guthrie | Baseball Development');
     expect(branded).toContain('For coaches only');
     expect(html).toContain('#12 Alex');
     expect(html).toContain('class="split">3.5');
@@ -130,12 +141,41 @@ describe('the board', () => {
     expect(html).toContain('#2 Ben');
     expect(html).toContain('#3 Cy'); // a note alone means he was there
     expect(html).not.toContain('Dov');
+    expect(html).not.toContain('Yes / Maybe / No'); // nobody leaned, so the column is not there
+    expect(html).not.toContain('<th>Decision</th>');
     expect(html).toContain('<th>Ground balls</th>');
     expect(html).not.toContain('<th>Hitting</th>');
     expect(html).not.toContain('<th>Pitching</th>');
     expect(html).toContain('Stations nobody scored, left out: Hitting, Pitching.');
     expect(html).toContain('1 kid on the list had no marks and is left out.');
     expect(html).toContain('1 of 1 stations');
+  });
+  it('the PDF is a real PDF with the same kids, stations and notes as the page', () => {
+    const kids = [kid('a', 'Alex', { number: '1', wearing: { s1: 'bright green shirt' } }), kid('b', 'Ben'), kid('d', 'Dov')];
+    const scores = [mark('a', 'gb', 'Deren', 5, { note: 'Soft hands' }), mark('a', 'gb', 'Aaron', 2), mark('b', 'gb', 'Aaron', 3, { note: 'Fields off to the side' }), mark('a', LEAN_STATION, 'Deren', 3)];
+    const team = { id: 't', name: 'Warriors 13U', ageGroup: '13U', createdAt: '', updatedAt: '' } as any;
+    const rows = buildBoard(tryout(), kids, scores, { sessionId: 's1' });
+    const bytes = buildTryoutPdf(tryout(), rows, { sessionLabel: 'Night 1', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23', sessionId: 's1', brand: { team } }, false);
+    const pdf = latin1(bytes);
+    expect(pdf.startsWith('%PDF-')).toBe(true);
+    for (const want of ['TRYOUT REPORT', 'COACHES ONLY', '#1 Alex', 'Ben', 'Ground balls', 'Soft hands', 'Fields off to the side', 'Wearing: bright green shirt', 'Stewards Sports Guthrie | Baseball Development', 'Page 1 of 1', 'For coaches only']) expect(pdf).toContain(want);
+    expect(pdf).not.toContain('Dov');
+    expect(pdf).not.toContain('(Hitting');
+    expect(pdf).toContain('/Subtype /Image'); // the wordmark is in it
+    // No team: still a PDF, no artwork.
+    const plain = latin1(buildTryoutPdf(tryout(), rows, { sessionLabel: 'Night 1', coaches: [], asOf: 'Nov 23' }, false));
+    expect(plain.startsWith('%PDF-')).toBe(true);
+    expect(plain).not.toContain('/Subtype /Image');
+    expect(pdfSafe('Zoë – “quick” • José Ruiz… Łukasz 北')).toBe('Zoë - "quick" - José Ruiz... Lukasz ?');
+    expect(tryoutPdfName(tryout(), 'Mon, Nov 23')).toBe('Warriors-tryouts-Mon-Nov-23.pdf');
+  });
+  it('a long report with many kids and a wall of notes still builds, on several pages', () => {
+    const kids = Array.from({ length: 30 }, (_, i) => kid('k' + i, 'Kid ' + i));
+    const scores = kids.flatMap((k, i) => [mark(k.id, 'gb', 'Deren', 1 + (i % 5), { note: 'A long note about footwork and hands. '.repeat(6) }), mark(k.id, 'hit', 'Aaron', 1 + ((i + 2) % 5), { note: 'Another long note. '.repeat(i === 3 ? 400 : 4) }), mark(k.id, 'pit', 'Matt', 3)]);
+    const pdf = latin1(buildTryoutPdf(tryout(), buildBoard(tryout(), kids, scores), { sessionLabel: 'All nights together', coaches: ['Aaron', 'Deren', 'Matt'], asOf: 'Nov 30' }, false));
+    expect(pdf.startsWith('%PDF-')).toBe(true);
+    expect(Number(/Page 1 of (\d+)/.exec(pdf)?.[1])).toBeGreaterThan(5);
+    expect(pdf).toContain('(Kid 29');
   });
   it('every note sits under its kid, grouped by the coach who wrote it, with the station it was about', () => {
     const kids = [kid('a', 'Alex'), kid('b', 'Ben')];
@@ -144,8 +184,9 @@ describe('the board', () => {
       mark('b', 'gb', 'Matt', 2, { note: 'Fields off to the side' })
     ];
     const html = renderBoardHtml(tryout(), buildBoard(tryout(), kids, scores, { sessionId: 's1' }), { sessionLabel: 'Night 1', coaches: ['Aaron', 'Deren', 'Matt'], asOf: 'Nov 23', sessionId: 's1' });
-    const alex = html.slice(html.indexOf('<section class="kid"><h3>Alex'), html.indexOf('<section class="kid"><h3>Ben'));
-    const ben = html.slice(html.indexOf('<section class="kid"><h3>Ben'));
+    const alex = html.slice(html.indexOf('<h3>Alex</h3>'), html.indexOf('<h3>Ben</h3>'));
+    const ben = html.slice(html.indexOf('<h3>Ben</h3>'));
+    expect(html.indexOf('<h3>Alex</h3>')).toBeGreaterThan(0);
     expect(alex).toContain('<strong>Aaron</strong><ul><li><span class="st">Hitting:</span> Sits back on everything</li><li>Great kid, hustles</li></ul>');
     expect(alex).toContain('<strong>Deren</strong><ul><li><span class="st">Ground balls:</span> Soft hands</li></ul>');
     expect(alex).not.toContain('Fields off to the side');

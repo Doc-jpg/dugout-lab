@@ -3,7 +3,7 @@
  * Pure functions over pixel data so they can be tested without a browser.
  */
 import { DEFAULT_SETTINGS, type Brand, type Team, type Settings } from './types';
-import { HOUSE_LOGO } from '../data/house-logo';
+import { HOUSE_LOGO, HOUSE_WORDMARK, HOUSE_WORDMARK_RATIO } from '../data/house-logo';
 
 export function hexToRgb(hex: string): [number, number, number] | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -134,6 +134,26 @@ export function brandFor(team?: Team): Brand {
   if (hasOwnBrand(team)) return team!.brand!;
   if (!HOUSE_BRAND.programName && !HOUSE_BRAND.primary) return team?.brand ?? {};
   return { ...HOUSE_BRAND, ...(team?.brand?.tagline ? { tagline: team.brand.tagline } : {}), ...(team?.brand?.footer ? { footer: team.brand.footer } : {}), coaches: team?.brand?.coaches ?? [] };
+}
+
+/**
+ * The wide wordmark for the top of a printed report, when there is one. Only the house brand has
+ * one. A team that typed the house name itself (Deren entering "Warriors Baseball" by hand) still
+ * gets it; any other team gets none and its report leads with its logo and name instead.
+ */
+export function wordmarkFor(team?: Team): { src: string; ratio: number } | undefined {
+  if (!team || !HOUSE_BRAND.programName) return undefined;
+  const own = team.brand?.programName?.trim().toLowerCase();
+  if (hasOwnBrand(team) && own !== HOUSE_BRAND.programName.toLowerCase()) return undefined;
+  return { src: HOUSE_WORDMARK, ratio: HOUSE_WORDMARK_RATIO };
+}
+
+/** Mix a color toward white: 0 is the color, 1 is white. For table stripes and soft panels. */
+export function tint(hex: string, toWhite: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return '#f3f6fa';
+  const [r, g, bl] = rgb.map((v) => Math.round(v + (255 - v) * toWhite));
+  return rgbToHex(r, g, bl);
 }
 
 /** The name shown in the app and on parent pages. */
