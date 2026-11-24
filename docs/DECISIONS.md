@@ -220,3 +220,7 @@ Deren sent screenshots of a paid coaching product whose main draw is animated dr
 - **Dressed as the program's document.** Color bar, the Warriors wordmark, a navy band with the letterhead line and a "Coaches only" pill, table heads and each kid's name bar in navy with the blue as the second color, an Overall badge per kid, a footer on every page. Another team gets the same layout in its own colors with its logo and name; colors are checked so words stay readable on them.
 - **The wordmark is now in the public code** (src/data/house-logo.ts, 760 px, about 27 KB), next to the W mark. Deren approved the logo in the code earlier the same evening and then asked for much stronger branding; the wordmark is that same logo. Told to him plainly in the reply; he can have it taken out.
 - **Upright unless the summary has more than eight columns.** Six stations fit upright and read better on a phone.
+
+## 2026-11-23, the report says the minute it was made (v0.9.6)
+
+- Deren exported the PDF, then saw different numbers on the Board. Nothing was wrong: a coach's marks changed after the export (three averages each moved by exactly what one coach lowering a 2 to a 1 would do). But "as of Nov 23" could not show that. The report now says the time of day it was made and says in its top box that it is a copy and later changes are only in the app.

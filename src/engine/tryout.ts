@@ -335,7 +335,7 @@ table.k th{font-size:11px;color:${p};text-transform:uppercase;letter-spacing:.6p
 <div class="hd">${mark}<div class="ttl"><div class="k">Tryout report</div><div class="n">${esc(t.name)}</div><div class="d">${esc(opts.sessionLabel)} · as of ${esc(opts.asOf)}</div></div></div>
 <div class="band"><span>${esc(b?.tagline || b?.name || 'Tryout report')}</span><span class="pill">Coaches only</span></div>
 <p class="by">Scored by <b>${esc(opts.coaches.join(', ') || 'no one yet')}</b> · ${count}</p>
-<p class="warn"><strong>For coaches only.</strong> Do not share with families or players. <strong>${SCALE_RULE}</strong> Each number in the summary is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means that coach did not score it.</p>
+<p class="warn"><strong>For coaches only.</strong> Do not share with families or players. <strong>${SCALE_RULE}</strong> Each number in the summary is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means that coach did not score it. This is a copy from the time shown above; marks changed after that are only in the app.</p>
 ${shown.length ? `<h2>Summary</h2><table class="sum"><thead>${head}</thead><tbody>${body}</tbody></table><h2>Kid by kid</h2>${kids}` : '<p>No marks yet.</p>'}
 ${left ? `<p class="m" style="margin-top:14px">${left}</p>` : ''}
 <div class="foot"><span>${b ? `<b>${esc(b.footer || b.name)}</b>` : ''}</span><span>For coaches only · ${esc(opts.asOf)}</span></div>

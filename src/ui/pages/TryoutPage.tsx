@@ -15,6 +15,8 @@ const nightLabel = (date: string) => {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 };
 const addDays = (date: string, n: number) => { const [y, m, d] = date.split('-').map((x) => parseInt(x, 10)); return localDate(new Date(y, m - 1, d + n)); };
+/** "9:52 PM". The report is a frozen copy and marks can still change after it, so it says the minute it was made. */
+const clockTime = (d: Date) => `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'AM' : 'PM'}`;
 const kidLine = (c: Candidate) => [c.positions, c.team, c.note].filter(Boolean).join(' · ');
 const kidName = (c: Candidate) => `${c.number ? `#${c.number} ` : ''}${c.name}`;
 /** Green for 4 and up, red for 2 and down, plain in between: the color says which way is good. */
@@ -299,7 +301,7 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
   const nightsMarked = useMemo(() => [...new Set(scores.filter((s) => s.tryoutId === tryout.id).map((s) => s.sessionId))], [scores, tryout.id]);
   const reportNight = sessionId || (nightsMarked.length === 1 ? nightsMarked[0] : '');
   const reportLabel = reportNight ? tryout.sessions.find((s) => s.id === reportNight)?.label ?? sessionLabel : sessionLabel;
-  const reportOpts = { sessionLabel: reportLabel, coaches: coaches.map((c) => c.by), asOf: shortDate(localDate(new Date())), sessionId: reportNight || undefined, brand: { team, settings } };
+  const reportOpts = { sessionLabel: reportLabel, coaches: coaches.map((c) => c.by), asOf: `${shortDate(localDate(new Date()))}, ${clockTime(new Date())}`, sessionId: reportNight || undefined, brand: { team, settings } };
   const pdfName = `${`${tryout.name} ${reportLabel}`.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tryout-report'}.pdf`;
   return (
     <div>

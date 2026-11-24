@@ -140,7 +140,7 @@ export function buildTryoutPdf(t: Tryout, rows: BoardRow[], opts: BoardReportOpt
 
   // Coaches-only box
   {
-    const lines = wrap(`For coaches only. Do not share with families or players. ${SCALE_RULE} Each number in the summary is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means that coach did not score it.`, CW - 24, { size: 9.5 });
+    const lines = wrap(`For coaches only. Do not share with families or players. ${SCALE_RULE} Each number in the summary is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means that coach did not score it. This is a copy from the time shown above; marks changed after that are only in the app.`, CW - 24, { size: 9.5 });
     const h = lines.length * 12.5 + 12;
     fill(SOFTER, M, y, CW, h);
     fill(A, M, y, 4, h);
