@@ -104,9 +104,16 @@ describe('the board', () => {
     const rows = buildBoard(tryout(), [kid('a', 'Alex', { number: '12', positions: 'SS', team: 'Storm', decision: 'waitlist', decisionNote: 'see night 2' })], scores);
     const html = renderBoardHtml(tryout(), rows, { sessionLabel: 'Both nights', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23' });
     expect(html).toContain('For coaches only');
+    expect(html).not.toContain('brandbar">');
+    expect(html).toContain('size:landscape');
+    const team = { id: 't', name: 'Storm 12U', ageGroup: '12U', createdAt: '', updatedAt: '', brand: { programName: 'Storm Baseball', primary: '#7A1F2B' } } as any;
+    const branded = renderBoardHtml(tryout(), rows, { sessionLabel: 'Both nights', coaches: ['Aaron', 'Deren'], asOf: 'Nov 23', brand: { team } });
+    expect(branded).toContain('<div class="brandbar">');
+    expect(branded).toContain('Storm Baseball');
+    expect(branded).toContain('For coaches only');
     expect(html).toContain('#12 Alex');
     expect(html).toContain('class="split">3.5');
-    expect(html).toContain('Aaron 2.0, Deren 5.0');
+    expect(html).toContain('Aaron 2.0<br>Deren 5.0');
     expect(html).toContain('1 / 0 / 0');
     expect(html).toContain('Waitlist');
     expect(html).toContain('slow &lt;feet&gt;');

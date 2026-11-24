@@ -287,6 +287,7 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
   const [open, setOpen] = useState<string | null>(null);
   const [print, setPrint] = useState(false);
   const settings = useSettings();
+  const team = useCurrentTeam();
   const [fetching, setFetching] = useState<'idle' | 'busy' | 'done' | 'failed'>('idle');
   const refresh = async () => { setFetching('busy'); try { const r = await syncNow(); setFetching(r.error || r.skipped ? 'failed' : 'done'); } catch { setFetching('failed'); } };
   const rows = useMemo(() => sortBoard(buildBoard(tryout, candidates, scores, { sessionId: sessionId || undefined }), sort), [tryout, candidates, scores, sessionId, sort]);
@@ -336,7 +337,7 @@ function BoardTab({ tryout, candidates, scores }: { tryout: Tryout; candidates: 
       </div>
       {settings.sync?.enabled && <p className="muted small">{fetching === 'done' ? 'Up to date as of right now.' : fetching === 'failed' ? 'Could not reach the other phones just now (no signal?). Your own marks are safe on this phone and go out when the signal is back.' : 'Other coaches\' marks arrive by themselves every couple of minutes while this is open, or tap to get them now.'}</p>}
       {openRow && <KidBoardSheet tryout={tryout} row={openRow} onClose={() => setOpen(null)} />}
-      {print && <PrintSheet title={`${tryout.name} board`} html={renderBoardHtml(tryout, rows, { sessionLabel, coaches: coaches.map((c) => c.by), asOf: shortDate(localDate(new Date())), sessionId: sessionId || undefined })} fileName={`tryout-board.html`} onClose={() => setPrint(false)} />}
+      {print && <PrintSheet title={`${tryout.name} board`} html={renderBoardHtml(tryout, rows, { sessionLabel, coaches: coaches.map((c) => c.by), asOf: shortDate(localDate(new Date())), sessionId: sessionId || undefined, brand: { team, settings } })} fileName={`tryout-board.html`} onClose={() => setPrint(false)} />}
     </div>
   );
 }

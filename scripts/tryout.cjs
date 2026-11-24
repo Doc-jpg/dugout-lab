@@ -135,7 +135,8 @@ fs.mkdirSync(shotsDir, { recursive: true });
   expect('order by name', await page.locator('table.tboard tbody tr').first().getAttribute('data-board-kid'), 'Alex Rivers');
   await page.getByRole('button', { name: 'Print or share the board' }).click(); await page.waitForSelector('.sheet iframe');
   const doc = await page.frameLocator('.sheet iframe').locator('body').innerText();
-  expect('printed board says coaches only and carries the notes', /For coaches only\./.test(doc) && /5 is best\. 1 is lowest\./.test(doc) && /Sits back on everything/.test(doc) && /Aaron 2\.0, Deren 5\.0/.test(doc) && /Wearing: bright green shirt/.test(doc), true);
+  expect('printed board says coaches only and carries the notes', /For coaches only\./.test(doc) && /5 is best\. 1 is lowest\./.test(doc) && /Sits back on everything/.test(doc) && /Aaron 2\.0\s+Deren 5\.0/.test(doc) && /Wearing: bright green shirt/.test(doc), true);
+  expect('printed board carries the team header and prints sideways', [await page.frameLocator('.sheet iframe').locator('.brandbar .n').count(), /size:landscape/.test(await page.locator('.sheet iframe').getAttribute('srcdoc'))], [1, true]);
   fs.writeFileSync(path.join(shotsDir, 'tryout-board.html'), await page.locator('.sheet iframe').getAttribute('srcdoc'));
   await page.locator('.sheet-head >> role=button[name="Close"]').click(); await page.waitForSelector('.sheet', { state: 'detached' });
 
