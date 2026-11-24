@@ -15,6 +15,7 @@
  */
 import type { Candidate, Tryout, TryoutScore, TryoutStation, ISODate } from './types';
 import { LEAN_STATION, NOTE_STATION } from './types';
+import { brandOf, brandHeader, brandFooter, type BrandContext } from './home';
 
 /** Matt's plan for the Warriors tryout nights, plus the two things a drill does not show by itself. */
 export const DEFAULT_STATIONS = ['Catch play', 'Ground balls', 'Fly balls', 'Pitching', 'Catching', 'Hitting', 'Speed and athleticism', 'Coachability and effort'];
@@ -218,26 +219,32 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const stationName = (t: Tryout, id: string) => (id === LEAN_STATION ? 'Lean' : id === NOTE_STATION ? 'Overall' : t.stations.find((s) => s.id === id)?.label ?? 'Station');
 const sessionName = (t: Tryout, id: string) => t.sessions.find((s) => s.id === id)?.label ?? '';
 
-/** A printable board for the coaches' talk afterward. Coach-only, and it says so on the page. */
-export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: { sessionLabel: string; coaches: string[]; asOf: string; sessionId?: string }): string {
+/**
+ * A printable board for the coaches' talk afterward. Coach-only, and it says so on the page.
+ * With a team it carries the team's header (name, logo, color) and prints sideways so the stations fit.
+ */
+export function renderBoardHtml(t: Tryout, rows: BoardRow[], opts: { sessionLabel: string; coaches: string[]; asOf: string; sessionId?: string; brand?: BrandContext }): string {
+  const b = opts.brand?.team ? brandOf(opts.brand) : undefined;
   const stations = visibleStations(t);
   const head = `<tr><th>Kid</th><th>Overall</th>${stations.map((s) => `<th>${esc(s.label)}</th>`).join('')}<th>Yes / Maybe / No</th><th>Decision</th></tr>`;
   const body = rows.map((r) => {
     const c = r.candidate;
     const who = `<strong>${c.number ? `#${esc(c.number)} ` : ''}${esc(c.name)}</strong>${c.positions || c.team ? `<div class="m">${esc([c.positions, c.team].filter(Boolean).join(' · '))}</div>` : ''}${wearingOn(c, t, opts.sessionId) ? `<div class="m">Wearing: ${esc(wearingOn(c, t, opts.sessionId)!)}</div>` : ''}`;
-    const cells = r.cells.map((x) => `<td class="${x.split ? 'split' : ''}">${fmt(x.avg)}${x.byCoach.length > 1 ? `<div class="m">${x.byCoach.map((b) => `${esc(b.by)} ${fmt(b.value)}`).join(', ')}</div>` : ''}</td>`).join('');
-    return `<tr><td>${who}</td><td><strong>${fmt(r.overall)}</strong><div class="m">${r.stationsScored} of ${stations.length} stations</div></td>${cells}<td>${r.leans.yes.length} / ${r.leans.maybe.length} / ${r.leans.no.length}</td><td>${c.decision ? esc(DECISION_LABEL[c.decision]) : ''}${c.decisionNote ? `<div class="m">${esc(c.decisionNote)}</div>` : ''}</td></tr>`;
+    const cells = r.cells.map((x) => `<td class="${x.split ? 'split' : ''}">${fmt(x.avg)}${x.byCoach.length > 1 ? `<div class="m c">${x.byCoach.map((b) => `${esc(b.by)} ${fmt(b.value)}`).join('<br>')}</div>` : ''}</td>`).join('');
+    return `<tr><td>${who}</td><td><strong>${fmt(r.overall)}</strong><div class="m">${r.stationsScored} of ${stations.length} stations</div></td>${cells}<td style="white-space:nowrap">${r.leans.yes.length} / ${r.leans.maybe.length} / ${r.leans.no.length}</td><td>${c.decision ? esc(DECISION_LABEL[c.decision]) : ''}${c.decisionNote ? `<div class="m">${esc(c.decisionNote)}</div>` : ''}</td></tr>`;
   }).join('');
   const notes = rows.filter((r) => r.notes.length).map((r) => `<h3>${r.candidate.number ? `#${esc(r.candidate.number)} ` : ''}${esc(r.candidate.name)}</h3><ul>${r.notes.map((n) => `<li><strong>${esc(n.by)}</strong>, ${esc(stationName(t, n.stationId))}${sessionName(t, n.sessionId) ? `, ${esc(sessionName(t, n.sessionId))}` : ''}: ${esc(n.text)}</li>`).join('')}</ul>`).join('');
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(t.name)} board</title><style>
 body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#16202e;margin:20px}h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:22px 0 6px}h3{font-size:14px;margin:14px 0 2px}
 table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #d5dbe6;padding:6px 8px;text-align:left;vertical-align:top}th{font-size:12px;color:#44506a}
 .m{color:#5b6680;font-size:11px}.split{background:#fff3d6}.warn{background:#f4f6fa;border-left:4px solid #b4530a;padding:8px 12px;border-radius:4px;font-size:13px}ul{margin:4px 0 0 18px;padding:0}
-@media print{body{margin:10mm}}</style></head><body>
-<h1>${esc(t.name)}</h1>
+.brandbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid ${b?.primary ?? '#16202e'}}.brandbar img{height:48px;width:48px;object-fit:contain}.brandbar .n{font-weight:800;font-size:18px;color:${b?.primary ?? '#16202e'}}.brandbar .t{color:#5b6680;font-size:13px}.foot{margin-top:18px;color:#5b6680;font-size:12px}.c{white-space:nowrap}th:first-child,td:first-child{min-width:170px}th:nth-child(2),td:nth-child(2){min-width:74px}
+@page{size:landscape;margin:10mm}@media print{body{margin:0}tr{break-inside:avoid}thead{display:table-header-group}.split{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+${b ? brandHeader(opts.brand) : ''}<h1>${esc(t.name)}</h1>
 <div class="m">${esc(opts.sessionLabel)} · as of ${esc(opts.asOf)} · scored by ${esc(opts.coaches.join(', ') || 'no one yet')}</div>
 <p class="warn"><strong>For coaches only.</strong> Do not share with families or players. <strong>${SCALE_RULE}</strong> Each number is the average of the coaches who scored it, so higher is better. A shaded box means two coaches were ${SPLIT_AT} or more apart: talk about that one. A dash means nobody scored it, and it is left out of the overall.</p>
 <table><thead>${head}</thead><tbody>${body}</tbody></table>
 ${notes ? `<h2>Notes</h2>${notes}` : ''}
+${b ? `<div class="foot">${brandFooter(opts.brand)}</div>` : ''}
 </body></html>`;
 }

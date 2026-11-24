@@ -19,7 +19,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LockScreen } from './components/LockScreen';
 import { requestPersistence, seedLibrary } from '../db/db';
 import { useCurrentTeam } from './hooks';
-import { brandCss } from '../engine/brand';
+import { brandCss, brandFor } from '../engine/brand';
 import { TourProvider } from './components/Tour';
 import { JoinPage } from './pages/JoinPage';
 import { TryoutsPage } from './pages/TryoutPage';
@@ -40,12 +40,12 @@ export function App() {
     seedLibrary().catch(() => undefined);
     return startSyncLoop();
   }, []);
-  // The current team's colors restyle the whole app; no brand means the default navy.
+  // The current team's colors restyle the whole app; a team with no look of its own gets the house brand.
   useEffect(() => {
     const root = document.documentElement;
     const mq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : undefined;
     const apply = () => {
-      const css = brandCss(team?.brand, Boolean(mq?.matches));
+      const css = brandCss(brandFor(team), Boolean(mq?.matches));
       for (const k of ['--accent', '--accent-ink', '--brand-accent']) {
         if (css[k]) root.style.setProperty(k, css[k]);
         else root.style.removeProperty(k);
@@ -55,7 +55,7 @@ export function App() {
     // The phone switching between light and dark re-picks the readable shade.
     mq?.addEventListener?.('change', apply);
     return () => mq?.removeEventListener?.('change', apply);
-  }, [team?.brand?.primary, team?.brand?.accent]);
+  }, [brandFor(team).primary, brandFor(team).accent]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <LockScreen>
     <TourProvider>

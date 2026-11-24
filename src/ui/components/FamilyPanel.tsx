@@ -5,6 +5,7 @@ import { homePlanFor, parentTextDraft, parentEmailDraft, scorecardFor, renderSco
 import { CATEGORY_LABEL, type Player, type ParentContact } from '../../engine/types';
 import { Sheet, useToast } from '../components/Sheet';
 import { PrintSheet } from '../components/PrintSheet';
+import { programName } from '../../engine/brand';
 import { ProgressCard } from '../components/ProgressCard';
 
 /**
@@ -57,7 +58,7 @@ export function FamilyPanel({ player }: { player: Player }) {
       toast.show('Could not copy; select the text in the preview instead');
     }
   };
-  const card = () => scorecardFor(player, teamPlayers, observations, practices, { teamName: team?.brand?.programName || team?.name, brand });
+  const card = () => scorecardFor(player, teamPlayers, observations, practices, { teamName: programName(team, settings), brand });
   const first = player.firstName;
 
   return (
@@ -82,7 +83,7 @@ export function FamilyPanel({ player }: { player: Player }) {
         {plan.mental && <div className="small" style={{ marginTop: 6 }}><strong>Mental:</strong> {plan.mental}</div>}
         <details className="small muted" style={{ marginTop: 6 }}><summary>Why these</summary><ul style={{ paddingLeft: 18 }}>{plan.basis.map((b, i) => <li key={i}>{b}</li>)}</ul></details>
         <div className="row wrap" style={{ marginTop: 8 }}>
-          <button className="btn" onClick={() => setPage({ title: `${first}'s yard work`, html: renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: team?.brand?.programName || team?.name, brand }), fileName: `${first}-home-plan.html`, kind: 'home_plan' })}>Open and share the printable</button>
+          <button className="btn" onClick={() => setPage({ title: `${first}'s yard work`, html: renderHomePlanHtml(player, plan, { coachName: settings.coachName, teamName: programName(team, settings), brand }), fileName: `${first}-home-plan.html`, kind: 'home_plan' })}>Open and share the printable</button>
         </div>
       </div>
 

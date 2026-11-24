@@ -11,7 +11,7 @@
 import type { Category, Drill, DrillVariant, Equipment, Level, Observation, Player, Practice, Team, Settings } from './types';
 import { CATEGORY_LABEL, LEVEL_LABEL, STATUS_LABEL, CATEGORIES, localDate } from './types';
 import { playerLevel } from './generator';
-import { programName as programNameOf, usableAsAccent, inkFor, hexToRgb } from './brand';
+import { programName as programNameOf, usableAsAccent, inkFor, hexToRgb, brandFor } from './brand';
 
 /** What a parent-facing page or draft is signed with. */
 export interface BrandContext {
@@ -21,7 +21,8 @@ export interface BrandContext {
 }
 
 export function brandOf(ctx: BrandContext) {
-  const b = ctx.team?.brand;
+  // No team at all (a bare page in a test, a pack with no team) stays plain; a team gets its own look or the house one.
+  const b = ctx.team ? brandFor(ctx.team) : undefined;
   const primary = b?.primary && hexToRgb(b.primary) ? usableAsAccent(b.primary) : '#1d4e89';
   const accent = b?.accent && hexToRgb(b.accent) ? b.accent : '#9fb8d8';
   return { name: programNameOf(ctx.team, ctx.settings), tagline: b?.tagline, logo: b?.logo, primary, accent, ink: inkFor(primary), coaches: b?.coaches ?? [], footer: b?.footer };

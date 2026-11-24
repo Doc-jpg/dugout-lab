@@ -7,7 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 const base = process.env.BASE_PATH || '/';
 // White-label build: BRAND_NAME and BRAND_COLOR change the installed app's name, icon label and theme color.
 const brandName = process.env.BRAND_NAME || 'Dugout Lab';
-const brandColor = process.env.BRAND_COLOR || '#13213a';
+const brandColor = process.env.BRAND_COLOR || '#0d2241';
 
 export default defineConfig({
   base,

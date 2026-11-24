@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { paletteFromPixels, suggestPair, inkFor, usableAsAccent, contrastRatio, programName, brandCss, hexToRgb, DARK_BG, lightenToContrast } from '../src/engine/brand';
-import { renderScorecardHtml, scorecardFor, parentEmailDraft, homePlanFor, renderHomePlanHtml } from '../src/engine/home';
+import { paletteFromPixels, suggestPair, inkFor, usableAsAccent, contrastRatio, programName, brandCss, hexToRgb, DARK_BG, lightenToContrast, HOUSE_BRAND, brandFor, hasOwnBrand } from '../src/engine/brand';
+import { renderScorecardHtml, scorecardFor, parentEmailDraft, homePlanFor, renderHomePlanHtml, brandOf, brandHeader, brandFooter } from '../src/engine/home';
 import { LIBRARY_DRILLS } from '../src/data/drills';
 import { nowIso, DEFAULT_SETTINGS, ageOf, AGE_GROUPS, seasonYearFor, ageGroupForClass, teamAgeGroup, type Drill, type Player, type Team } from '../src/engine/types';
 
@@ -64,8 +64,51 @@ describe('brand on screen and on parent pages', () => {
   const drills: Drill[] = LIBRARY_DRILLS.map((d) => ({ ...d, createdAt: ts, updatedAt: ts }));
   it('program name falls back sensibly', () => {
     expect(programName(team, DEFAULT_SETTINGS)).toBe('Performance Baseball');
-    expect(programName({ ...team, brand: undefined }, DEFAULT_SETTINGS)).toBe('Dirtbags 12U');
+    // a team with no look of its own shows under the house name
+    expect(programName({ ...team, brand: undefined }, DEFAULT_SETTINGS)).toBe('Warriors Baseball');
     expect(programName(undefined, { ...DEFAULT_SETTINGS, appName: 'Wow Factor 2032' })).toBe('Wow Factor 2032');
+    expect(programName(undefined, DEFAULT_SETTINGS)).toBe('Warriors Baseball');
+  });
+  it('the house brand is the Warriors, logo included, small enough to ride on every parent page', () => {
+    const { logo, ...rest } = HOUSE_BRAND;
+    expect(rest).toEqual({ programName: 'Warriors Baseball', tagline: 'Stewards Sports Guthrie | Baseball Development', footer: 'Warriors \u2022 Stewards Sports Guthrie', primary: '#0D2241', accent: '#286AA5' });
+    expect(logo).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/);
+    expect(logo!.length).toBeLessThan(150_000);
+  });
+  it('a team with its own look keeps exactly what it set; a team with none gets the house look', () => {
+    expect(hasOwnBrand(team)).toBe(true);
+    expect(brandFor(team)).toBe(team.brand);
+    const bare = { ...team, name: 'Warriors 13U', brand: undefined };
+    expect(hasOwnBrand(bare)).toBe(false);
+    expect(brandFor(bare)).toEqual({ ...HOUSE_BRAND, coaches: [] });
+    expect(brandFor(undefined)).toEqual({ ...HOUSE_BRAND, coaches: [] });
+    // coaches listed before any look was chosen still show, under the house look
+    const withCoaches = { ...team, brand: { coaches: [{ name: 'Aaron', role: 'Head coach' }] } };
+    expect(hasOwnBrand(withCoaches)).toBe(false);
+    expect(brandFor(withCoaches)).toMatchObject({ programName: 'Warriors Baseball', primary: '#0D2241', coaches: [{ name: 'Aaron', role: 'Head coach' }] });
+    // only a logo, or only a color, already counts as the team's own look
+    expect(hasOwnBrand({ ...team, brand: { logo: 'data:image/png;base64,AA==' } })).toBe(true);
+    expect(hasOwnBrand({ ...team, brand: { primary: '#123456' } })).toBe(true);
+    expect(brandFor({ ...team, brand: { primary: '#123456' } }).programName).toBeUndefined();
+  });
+  it('the house look reads in light and in dark mode, in the app and on a parent page', () => {
+    const bare = { ...team, name: 'Warriors 13U', brand: undefined };
+    expect(brandCss(brandFor(bare))).toEqual({ '--accent': '#0d2241', '--accent-ink': '#ffffff', '--brand-accent': '#286AA5' });
+    const dark = brandCss(brandFor(bare), true);
+    expect(contrastRatio(dark['--accent'], DARK_BG)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(dark['--accent'], dark['--accent-ink'])).toBeGreaterThanOrEqual(4.5);
+    const b = brandOf({ team: bare, settings: DEFAULT_SETTINGS });
+    expect(b).toMatchObject({ name: 'Warriors Baseball', tagline: 'Stewards Sports Guthrie | Baseball Development', primary: '#0d2241', accent: '#286AA5', ink: '#ffffff', footer: 'Warriors \u2022 Stewards Sports Guthrie' });
+    expect(b.logo).toBe(HOUSE_BRAND.logo);
+    expect(brandHeader({ team: bare })).toContain('Warriors Baseball');
+    expect(brandHeader({ team: bare })).toContain('<img src="data:image/png;base64,');
+    expect(brandFooter({ team: bare })).toContain('Stewards Sports Guthrie');
+    // the Dirtbags demo, and any team with its own look, never picks up Warriors words
+    expect(brandHeader({ team })).toContain('Performance Baseball');
+    expect(brandHeader({ team }) + brandFooter({ team })).not.toMatch(/Warriors|Stewards/);
+    expect(brandHeader({ team })).not.toContain(HOUSE_BRAND.logo!);
+    // a page made with no team at all stays plain
+    expect(brandOf({})).toMatchObject({ primary: '#1d4e89', tagline: undefined, footer: undefined });
   });
   it('app css comes from the primary color with readable ink', () => {
     const css = brandCss(team.brand);
