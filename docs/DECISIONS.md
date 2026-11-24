@@ -199,7 +199,7 @@ Deren sent screenshots of a paid coaching product whose main draw is animated dr
 - **All or nothing per team.** A team that has set its own name, color or logo keeps exactly what it set and never picks up Warriors words (the Dirtbags demo stays the Dirtbags). A team that has set none of those gets the whole house look, plus any coaches it has listed.
 - The app's own first-paint colors and the installed app's bar are the same navy, so nothing flashes blue-then-navy. Dark mode uses the lightened blue (#5186b6) that v0.6.1 worked out.
 - The Branding sheet opens pre-filled with the house look for a team still on it, so adding a logo and saving keeps the name and colors.
-- **No logo in the code.** The repository and the site are public and the logo is the program's. The logo goes in on the phone (Settings, Branding, Upload logo), where it is private and reaches linked phones with the team. Deren can overrule this; it was asked of him 2026-11-23.
+- **The logo is in the code, by Deren's yes.** The repository and the site are public and the logo is the program's, so Claude left it out and asked; Deren said yes the same evening. It is the W mark at 224 px in src/data/house-logo.ts (about 32 KB), the only real program's image in the repository. A team can still upload a different logo for itself on the phone.
 - No religion in the tagline or footer (Deren, 2026-11-14). No coach names in the code; coaches are listed per team on the phone.
 - To hand the app to another program later: change `HOUSE_BRAND`, or empty it for a plain app. The white-label build variables still set the installed name and bar color.
 - **Released the morning after it was built,** not during the first tryout night, so the app did not update itself under two coaches mid-scoring.

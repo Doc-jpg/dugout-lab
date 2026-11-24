@@ -17,13 +17,15 @@ const shotsDir = path.join(__dirname, 'shots'); fs.mkdirSync(shotsDir, { recursi
     expect(`${scheme}: before any team the app is already in the house color`, await accent(), scheme === 'dark' ? '#5186b6' : '#0d2241');
     await page.click('role=button[name="Try the demo team first"]'); await page.waitForURL(/\/practices\//, { timeout: 60000 });
     await page.goto(URL + '#/today'); await page.waitForSelector('h1');
-    expect(`${scheme}: the demo keeps its own look`, [/Dirtbags Baseball/.test(await page.locator('h1').first().innerText()), /Warriors|Stewards/.test(await page.locator('main').innerText()), await accent() === (scheme === 'dark' ? '#5186b6' : '#0d2241')], [true, false, false]);
+    expect(`${scheme}: the demo keeps its own look`, [/Dirtbags Baseball/.test(await page.locator('h1').first().innerText()), /Warriors|Stewards/.test(await page.locator('main').innerText()), await accent() === (scheme === 'dark' ? '#5186b6' : '#0d2241'), await page.locator('main img').first().evaluate((e) => e.naturalWidth === 224).catch(() => false)], [true, false, false, false]);
     // Turn the demo into a plain team with no look of its own, the way a real team starts
     await page.evaluate(() => new Promise((res, rej) => { const r = indexedDB.open('dugout-lab'); r.onsuccess = () => { const tx = r.result.transaction('teams', 'readwrite'); const st = tx.objectStore('teams'); const g = st.getAll(); g.onsuccess = () => { for (const t of g.result) { const { brand, ...rest } = t; st.put({ ...rest, name: 'Thirteens', brand: { coaches: [{ name: 'Coach Demo', role: 'Head coach' }] } }); } }; tx.oncomplete = () => { r.result.close(); res(true); }; tx.onerror = () => rej(tx.error); }; }));
     await page.reload(); await page.waitForSelector('h1'); await page.waitForTimeout(400);
     const top = await page.locator('main').innerText();
     expect(`${scheme}: Today shows the house name and tagline`, [(await page.locator('h1').first().innerText()).trim(), /Stewards Sports Guthrie \| Baseball Development/.test(top)], ['Warriors Baseball', true]);
     expect(`${scheme}: the app takes the house color`, await accent(), scheme === 'dark' ? '#5186b6' : '#0d2241');
+    const logo = page.locator('main img').first();
+    expect(`${scheme}: the W mark is next to the name and really loads`, [(await logo.getAttribute('src')).startsWith('data:image/png;base64,'), await logo.evaluate((e) => e.complete && e.naturalWidth)], [true, 224]);
     const btn = await page.locator('.btn.primary').first().evaluate((e) => { const s = getComputedStyle(e); return [s.backgroundColor, s.color]; });
     expect(`${scheme}: a main button is readable`, btn, scheme === 'dark' ? ['rgb(81, 134, 182)', 'rgb(17, 17, 17)'] : ['rgb(13, 34, 65)', 'rgb(255, 255, 255)']);
     await page.screenshot({ path: path.join(shotsDir, `50_house_today_${scheme}.png`) });
@@ -33,6 +35,7 @@ const shotsDir = path.join(__dirname, 'shots'); fs.mkdirSync(shotsDir, { recursi
     await page.locator('[data-progress-card="family"]').getByRole('button', { name: 'Progress page' }).click(); await page.waitForSelector('.sheet iframe');
     const doc = await page.frameLocator('.sheet iframe').locator('body').innerText();
     expect(`${scheme}: the parent page is headed and footed by the house brand, with the listed coach`, [/^\s*Warriors Baseball\s*\n\s*Stewards Sports Guthrie \| Baseball Development/.test(doc), /Warriors • Stewards Sports Guthrie/.test(doc), /Coaches: Coach Demo \(Head coach\)/.test(doc), /Dirtbags/.test(doc)], [true, true, true, false]);
+    expect(`${scheme}: the parent page carries the W mark`, await page.frameLocator('.sheet iframe').locator('.brandbar img').evaluate((e) => e.complete && e.naturalWidth), 224);
     const rule = await page.frameLocator('.sheet iframe').locator('.brandbar').evaluate((e) => getComputedStyle(e).borderBottomColor);
     expect(`${scheme}: the rule under the page's heading is navy`, rule, 'rgb(13, 34, 65)');
     if (scheme === 'light') fs.writeFileSync(path.join(shotsDir, 'house-progress-page.html'), await page.locator('.sheet iframe').getAttribute('srcdoc'));

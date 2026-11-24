@@ -67,11 +67,13 @@ describe('brand on screen and on parent pages', () => {
     // a team with no look of its own shows under the house name
     expect(programName({ ...team, brand: undefined }, DEFAULT_SETTINGS)).toBe('Warriors Baseball');
     expect(programName(undefined, { ...DEFAULT_SETTINGS, appName: 'Wow Factor 2032' })).toBe('Wow Factor 2032');
+    expect(programName(undefined, DEFAULT_SETTINGS)).toBe('Warriors Baseball');
   });
-  it('the house brand is the Warriors, with no logo in the code', () => {
-    expect(HOUSE_BRAND).toEqual({ programName: 'Warriors Baseball', tagline: 'Stewards Sports Guthrie | Baseball Development', footer: 'Warriors \u2022 Stewards Sports Guthrie', primary: '#0D2241', accent: '#286AA5' });
-    expect(HOUSE_BRAND.logo).toBeUndefined();
-    expect(JSON.stringify(HOUSE_BRAND)).not.toMatch(/data:image/);
+  it('the house brand is the Warriors, logo included, small enough to ride on every parent page', () => {
+    const { logo, ...rest } = HOUSE_BRAND;
+    expect(rest).toEqual({ programName: 'Warriors Baseball', tagline: 'Stewards Sports Guthrie | Baseball Development', footer: 'Warriors \u2022 Stewards Sports Guthrie', primary: '#0D2241', accent: '#286AA5' });
+    expect(logo).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/);
+    expect(logo!.length).toBeLessThan(150_000);
   });
   it('a team with its own look keeps exactly what it set; a team with none gets the house look', () => {
     expect(hasOwnBrand(team)).toBe(true);
@@ -97,13 +99,14 @@ describe('brand on screen and on parent pages', () => {
     expect(contrastRatio(dark['--accent'], dark['--accent-ink'])).toBeGreaterThanOrEqual(4.5);
     const b = brandOf({ team: bare, settings: DEFAULT_SETTINGS });
     expect(b).toMatchObject({ name: 'Warriors Baseball', tagline: 'Stewards Sports Guthrie | Baseball Development', primary: '#0d2241', accent: '#286AA5', ink: '#ffffff', footer: 'Warriors \u2022 Stewards Sports Guthrie' });
-    expect(b.logo).toBeUndefined();
+    expect(b.logo).toBe(HOUSE_BRAND.logo);
     expect(brandHeader({ team: bare })).toContain('Warriors Baseball');
-    expect(brandHeader({ team: bare })).not.toContain('<img');
+    expect(brandHeader({ team: bare })).toContain('<img src="data:image/png;base64,');
     expect(brandFooter({ team: bare })).toContain('Stewards Sports Guthrie');
     // the Dirtbags demo, and any team with its own look, never picks up Warriors words
     expect(brandHeader({ team })).toContain('Performance Baseball');
     expect(brandHeader({ team }) + brandFooter({ team })).not.toMatch(/Warriors|Stewards/);
+    expect(brandHeader({ team })).not.toContain(HOUSE_BRAND.logo!);
     // a page made with no team at all stays plain
     expect(brandOf({})).toMatchObject({ primary: '#1d4e89', tagline: undefined, footer: undefined });
   });

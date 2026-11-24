@@ -2,7 +2,8 @@
  * Branding helpers: colors from a logo, contrast, and the CSS the app applies for a team.
  * Pure functions over pixel data so they can be tested without a browser.
  */
-import type { Brand, Team, Settings } from './types';
+import { DEFAULT_SETTINGS, type Brand, type Team, type Settings } from './types';
+import { HOUSE_LOGO } from '../data/house-logo';
 
 export function hexToRgb(hex: string): [number, number, number] | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -107,11 +108,12 @@ export function suggestPair(palette: PaletteColor[]): { primary?: string; accent
  * we ever consider it going outside of just my hands"). To hand the app to another program, change
  * this one object, or empty it to go back to a plain app.
  *
- * No logo here: the code is public, and a logo belongs to the program. A team adds its logo on the
- * phone (Settings, Branding), where it stays private and reaches the linked phones.
+ * The logo is the program's W mark. The code is public, so this publishes it there; Deren was asked
+ * and said yes (2026-11-23).
  */
 export const HOUSE_BRAND: Brand = {
   programName: 'Warriors Baseball',
+  logo: HOUSE_LOGO,
   tagline: 'Stewards Sports Guthrie | Baseball Development',
   footer: 'Warriors \u2022 Stewards Sports Guthrie',
   primary: '#0D2241',
@@ -136,8 +138,11 @@ export function brandFor(team?: Team): Brand {
 
 /** The name shown in the app and on parent pages. */
 export function programName(team?: Team, settings?: Settings): string {
-  // Before there is any team, the app is just the app.
-  return (team ? brandFor(team).programName?.trim() : undefined) || team?.name || settings?.appName || 'Dugout Lab';
+  if (team) return brandFor(team).programName?.trim() || team.name || settings?.appName || 'Dugout Lab';
+  // Before there is any team: a name somebody typed for the app wins, then the house name, so the
+  // first screen does not show the house logo under a different name.
+  const typed = settings?.appName && settings.appName !== DEFAULT_SETTINGS.appName ? settings.appName : undefined;
+  return typed || HOUSE_BRAND.programName?.trim() || settings?.appName || 'Dugout Lab';
 }
 
 /** The app's own dark-mode page color. A brand color has to stay readable on it. */
