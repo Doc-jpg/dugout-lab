@@ -101,9 +101,43 @@ export function suggestPair(palette: PaletteColor[]): { primary?: string; accent
   return { primary, accent: best?.hex };
 }
 
+/**
+ * The house brand: the look every team gets until it sets its own. This copy of the app is the
+ * Warriors' (Deren, 2026-11-23: "just as a default ... we're gonna try this for a full season before
+ * we ever consider it going outside of just my hands"). To hand the app to another program, change
+ * this one object, or empty it to go back to a plain app.
+ *
+ * No logo here: the code is public, and a logo belongs to the program. A team adds its logo on the
+ * phone (Settings, Branding), where it stays private and reaches the linked phones.
+ */
+export const HOUSE_BRAND: Brand = {
+  programName: 'Warriors Baseball',
+  tagline: 'Stewards Sports Guthrie | Baseball Development',
+  footer: 'Warriors \u2022 Stewards Sports Guthrie',
+  primary: '#0D2241',
+  accent: '#286AA5'
+};
+
+/** A team has its own look once it has set a name, a color or a logo for itself. */
+export function hasOwnBrand(team?: Team): boolean {
+  const b = team?.brand;
+  return Boolean(b && (b.programName?.trim() || b.primary || b.logo));
+}
+
+/**
+ * The brand to show for a team. A team with its own look keeps exactly what it set (the demo team
+ * stays the Dirtbags). A team with none gets the house brand, plus any coaches it has listed.
+ */
+export function brandFor(team?: Team): Brand {
+  if (hasOwnBrand(team)) return team!.brand!;
+  if (!HOUSE_BRAND.programName && !HOUSE_BRAND.primary) return team?.brand ?? {};
+  return { ...HOUSE_BRAND, ...(team?.brand?.tagline ? { tagline: team.brand.tagline } : {}), ...(team?.brand?.footer ? { footer: team.brand.footer } : {}), coaches: team?.brand?.coaches ?? [] };
+}
+
 /** The name shown in the app and on parent pages. */
 export function programName(team?: Team, settings?: Settings): string {
-  return team?.brand?.programName?.trim() || team?.name || settings?.appName || 'Dugout Lab';
+  // Before there is any team, the app is just the app.
+  return (team ? brandFor(team).programName?.trim() : undefined) || team?.name || settings?.appName || 'Dugout Lab';
 }
 
 /** The app's own dark-mode page color. A brand color has to stay readable on it. */

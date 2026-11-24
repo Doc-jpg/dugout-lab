@@ -4,6 +4,7 @@ import { useSettings, useTeams, useCurrentTeam, usePlayers } from '../hooks';
 import { saveSettings, createTeam, updateTeam, storageHealth, requestPersistence, db, playerName, type StorageHealth } from '../../db/db';
 import { buildBackup, buildCoachPack, readBackup, restoreBackup, readDugoutDadArchive, planRosterImport, commitRosterImport, shareOrDownload, type BackupContents, type RestoreReport, type DugoutDadRoster, type RosterImportPlan } from '../../io/backup';
 import { loadDemoData, removeDemoData, DEMO_TEAM_ID } from '../../data/demo';
+import { brandFor, hasOwnBrand } from '../../engine/brand';
 import { AGE_GROUPS, CATEGORIES, CATEGORY_LABEL, EQUIPMENT_LABEL, SPACE_LABEL, nowIso, teamAgeGroup, ageGroupForClass, seasonYearFor, type AgeGroup, type Category, type Equipment, type Space, type Helper, type Team } from '../../engine/types';
 import { APP_VERSION } from '../version';
 import { Sheet, Confirm, useToast } from '../components/Sheet';
@@ -119,6 +120,7 @@ export function SettingsPage() {
               <button className="btn sm" onClick={() => setTeamSheet('edit')}>Edit team and priorities</button>
               <button className="btn sm" onClick={() => setBrandSheet(true)}>Branding: name, logo, colors, coaches</button>
             </div>
+            {!hasOwnBrand(team) && brandFor(team).programName && <div className="small muted" style={{ marginTop: 6 }}>Shows as "{brandFor(team).programName}" in the app's own navy and blue. Open Branding to add the logo or change anything for this team.</div>}
             {team.brand?.programName && <div className="small muted" style={{ marginTop: 6 }}>Shows as "{team.brand.programName}"{team.brand.coaches?.length ? ` · ${team.brand.coaches.length} coach${team.brand.coaches.length > 1 ? 'es' : ''} listed` : ''}</div>}
           </>
         ) : <div className="muted small">No team yet.</div>}

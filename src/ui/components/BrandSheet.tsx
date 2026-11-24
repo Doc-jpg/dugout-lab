@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sheet } from './Sheet';
 import { updateTeam } from '../../db/db';
-import { paletteFromPixels, suggestPair, rgbToHex, hexToRgb, usableAsAccent, inkFor, type PaletteColor } from '../../engine/brand';
+import { paletteFromPixels, suggestPair, rgbToHex, hexToRgb, usableAsAccent, inkFor, type PaletteColor, brandFor } from '../../engine/brand';
 import type { Team, Brand, CoachContact } from '../../engine/types';
 
 const MAX_LOGO_PX = 320;
@@ -31,7 +31,8 @@ async function fileToLogo(file: File): Promise<string> {
 
 /** Program name, tagline, logo, colors (eyedropper and auto palette), coaches, footer. */
 export function BrandSheet({ team, onClose, onSaved }: { team: Team; onClose: () => void; onSaved: () => void }) {
-  const [b, setB] = useState<Brand>({ coaches: [], ...(team.brand ?? {}) });
+  // A team still on the house look starts the sheet from it, so adding a logo and saving keeps the name and colors.
+  const [b, setB] = useState<Brand>({ coaches: [], ...brandFor(team) });
   const [palette, setPalette] = useState<PaletteColor[]>([]);
   const [pick, setPick] = useState<'primary' | 'accent'>('primary');
   const [hover, setHover] = useState<string | null>(null);

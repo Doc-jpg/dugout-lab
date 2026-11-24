@@ -12,7 +12,7 @@ import { SmartNoteSheet } from '../components/SmartNote';
 import { NarrateSheet } from '../components/NarrateSheet';
 import { TourOffer } from '../components/Tour';
 import { syncNow } from '../../io/sync';
-import { programName } from '../../engine/brand';
+import { programName, brandFor } from '../../engine/brand';
 
 /** Today: the next practice, what to remember about kids, one tap to start. */
 export function TodayPage() {
@@ -59,10 +59,10 @@ export function TodayPage() {
     <div>
       <div className="row between" style={{ marginBottom: 8 }}>
         <div className="row" style={{ gap: 10, minWidth: 0 }}>
-          {team?.brand?.logo && <img src={team.brand.logo} alt="" style={{ height: 36, width: 36, objectFit: 'contain', borderRadius: 8, background: '#fff' }} />}
+          {brandFor(team).logo && <img src={brandFor(team).logo} alt="" style={{ height: 36, width: 36, objectFit: 'contain', borderRadius: 8, background: '#fff' }} />}
           <div style={{ minWidth: 0 }}>
             <h1 style={{ margin: 0, fontSize: programName(team, settings).length > 14 ? 20 : undefined, lineHeight: 1.15 }}>{programName(team, settings)}</h1>
-            {team?.brand?.tagline && <div className="muted small">{team.brand.tagline}</div>}
+            {brandFor(team).tagline && <div className="muted small">{brandFor(team).tagline}</div>}
           </div>
         </div>
         <div className="row">
